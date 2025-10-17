@@ -47,33 +47,6 @@ def print_simulation_results(simulation, output_csv: str = None) -> None:
         print(f"Results saved to: {output_csv}")
     print("=" * 50)
 
-def compute_slots_sequence(initial_workers: int, years: int,
-                           green_card_cap_abs: int,
-                           real_us_workforce_size: int,
-                           enable_carryover: bool = True) -> Tuple[List[int], int, float]:
-    """
-    Compute deterministic per-year slots list from initial_workers:
-    annual_float = green_card_cap_abs * (initial_workers / real_us_workforce_size)
-      base_slots = floor(annual_float_slots)
-      frac = annual_float_slots - base_slots
-      then distribute `frac` deterministically via cumulative carryover across `years`.
-    Returns: (slots_list, base_slots, frac)
-    """
-    annual_float = green_card_cap_abs * (initial_workers / real_us_workforce_size)
-    base_slots = math.floor(annual_float)
-    frac = annual_float - base_slots
-    slots = []
-    cumulative_frac = 0.0
-    
-    for _ in range(years):
-        cumulative_frac += frac if enable_carryover else 0.0
-        extra = int(math.floor(cumulative_frac))
-        slots_this_year = base_slots + extra
-        cumulative_frac -= extra
-        slots.append(slots_this_year)
-        
-    return slots, base_slots, frac
-
 def save_simulation_results(states, output_path: str, include_nationality_columns: bool = True) -> None:
     """
     Save simulation results to CSV file.

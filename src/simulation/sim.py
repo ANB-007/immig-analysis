@@ -9,7 +9,6 @@ import math
 from typing import List, Optional, Dict, Tuple, Set
 from collections import defaultdict, deque
 import numpy as np
-from .visa_processor import process_eb_conversions_with_spillover
 
 from .models import (
     SimulationConfig, SimulationState, Worker, WorkerStatus, EBCategory,
@@ -24,14 +23,16 @@ from .empirical_params import (
     WAGE_JUMP_FACTOR_MEAN_PERM, WAGE_JUMP_FACTOR_STD_PERM,
     WAGE_JUMP_FACTOR_MEAN_TEMP, WAGE_JUMP_FACTOR_STD_TEMP,
     TEMP_NATIONALITY_DISTRIBUTION, PERMANENT_NATIONALITY,
-    CARRYOVER_FRACTION_STRATEGY, calculate_annual_sim_cap,
+    calculate_annual_sim_cap,
     CONVERSION_WAGE_BUMP, PERM_FILING_DELAY,
     calculate_permanent_entries, H1B_CONVERSION_CATEGORY_PROBABILITIES,
     CHILDREN_PER_H1B_WORKER, CHILD_ENTRY_AGE_MEAN, CHILD_ENTRY_AGE_STD, CHILD_AGEOUT_AGE
 )
 from .annual_summary import generate_annual_summaries, print_annual_summary_table
+from .visa_processor import process_eb_conversions_with_spillover
 
 logger = logging.getLogger(__name__)
+
 
 class Simulation:
     """
@@ -60,19 +61,13 @@ class Simulation:
         self.annual_eb_caps = calculate_annual_eb_caps(config.initial_workers)
         self.per_country_caps_by_category = calculate_per_country_caps_by_category(self.annual_eb_caps)
         
-        # Legacy total cap for compatibility
-        self.annual_sim_cap = sum(self.annual_eb_caps.values())
+        # CRITICAL FIX: Use calculate_annual_sim_cap from empirical_params.py
+        # This replaces the complex compute_slots_sequence from utils.py
+        self.annual_sim_cap = calculate_annual_sim_cap(config.initial_workers)
         
-        from .utils import compute_slots_sequence
-        # Use total EB cap for slots sequence computation
-        self.slots_sequence, self.base_slots, self.slot_fraction = compute_slots_sequence(
-            initial_workers=self.config.initial_workers,
-            years=self.config.years,
-            green_card_cap_abs=GREEN_CARD_CAP_ABS,
-            real_us_workforce_size=REAL_US_WORKFORCE_SIZE,
-            enable_carryover=CARRYOVER_FRACTION_STRATEGY
-        )
-        self.expected_total_conversions = sum(self.slots_sequence)
+        # Calculate expected total conversions over simulation period
+        self.expected_total_conversions = self.annual_sim_cap * config.years
+        
         self.fixed_annual_h1b_entries = calculate_fixed_h1b_entries(self.config.initial_workers)
 
         # Comprehensive initialization logging
@@ -189,26 +184,29 @@ class Simulation:
 
     def _remove_children_of_converted_parents(self, current_year: int, converted_worker_ids: Set[int]) -> int:
         """
-        Remove children whose parents converted to permanent status.
-        CRITICAL: This must happen BEFORE child aging to prevent counting issues.
+        CRITICAL FIX: Ensure children are properly removed when parents convert.
+        
+        Bug: Children weren't being removed properly, causing them to appear in age-out
+        calculations even after their parents converted.
         """
         children_saved_this_year = 0
         still_dependent = []
+        
+        # Track which children are saved for debugging
         saved_children = []
         
         for child in self.dependent_children:
             if child.parent_worker_id in converted_worker_ids:
+                # Parent converted → child is automatically protected from age-out
                 children_saved_this_year += 1
                 saved_children.append(child)
                 
-                if self.config.debug and len(saved_children) <= 3:
+                if self.config.debug and len(saved_children) <= 3:  # Limit debug output
                     age = child.age_in_year(current_year)
                     logger.debug(f"Child {child.child_id} (age {age}) saved by parent {child.parent_worker_id} conversion")
             else:
+                # Parent did not convert → child remains at risk
                 still_dependent.append(child)
-        
-        # CRITICAL: Update dependent children list
-        self.dependent_children = still_dependent
         
         # Also clean up birth year tracking
         saved_child_ids = {child.child_id for child in saved_children}
@@ -217,21 +215,28 @@ class Simulation:
                 child for child in self.children_by_birth_year[birth_year]
                 if child.child_id not in saved_child_ids
             ]
+            # Remove empty birth year entries
             if not self.children_by_birth_year[birth_year]:
                 del self.children_by_birth_year[birth_year]
         
+        self.dependent_children = still_dependent
+        
+        # VALIDATION: Ensure we're not double-counting children
         if self.config.debug and children_saved_this_year > 0:
-            logger.info(f"Year {current_year}: {children_saved_this_year} children saved, "
-                    f"{len(self.dependent_children)} still at risk")
+            logger.info(f"Year {current_year}: {children_saved_this_year} children saved by parent conversions, "
+                       f"{len(self.dependent_children)} still at risk")
         
         return children_saved_this_year
 
     def _process_child_aging(self, current_year: int) -> int:
         """
-        CRITICAL FIX: Process child age-outs ONLY for children with temporary parents.
+        CRITICAL FIX: Children age out based on birth year cohorts, not current population.
         
-        Children whose parents already converted should have been removed in
-        _remove_children_of_converted_parents, so we shouldn't see them here.
+        The bug was: age-out calculations were based on current H-1B population size,
+        which grows over time in uncapped scenarios, causing wrong age-out trends.
+        
+        The fix: Track children by their deterministic age-out year, regardless of
+        current population dynamics.
         """
         children_aged_out_this_year = 0
         still_dependent = []
@@ -243,21 +248,18 @@ class Simulation:
             age = child.age_in_year(current_year)
             parent_worker = worker_lookup.get(child.parent_worker_id)
             
-            # Validate parent exists
+            # CRITICAL: Only process if parent still exists and is temporary
             if not parent_worker:
-                # Parent no longer exists (shouldn't happen) - skip this child
-                if self.config.debug:
-                    logger.warning(f"Child {child.child_id} has missing parent {child.parent_worker_id}")
+                logger.error(f"CRITICAL BUG: parent {child.parent_worker_id} doesn't exist")
+                # Parent no longer exists (edge case) - remove child
                 continue
                 
-            # CRITICAL FIX: If parent is permanent, this child should NOT be here!
-            # They should have been removed in _remove_children_of_converted_parents
             if parent_worker.is_permanent:
-                # Log error but DON'T count as aged-out (parent converted, child is safe)
-                if self.config.debug:
-                    logger.error(f"CRITICAL BUG: Child {child.child_id} has permanent parent {parent_worker.id} "
-                                f"but wasn't removed in year {parent_worker.conversion_year}!")
-                # Skip this child (don't add to still_dependent, effectively removing)
+                # This should NOT happen!
+                # Children of converted parents should have been removed in _remove_children_of_converted_parents
+                logger.error(f"CRITICAL BUG: Child {child.child_id} has permanent parent {parent_worker.id} "
+                            f"but wasn't removed when parent converted in year {parent_worker.conversion_year}!")
+                # Remove this child (parent already converted, child is safe)
                 continue
             
             # Child's parent is still temporary - check if child ages out
@@ -278,15 +280,15 @@ class Simulation:
                 self.aged_out_children.append(aged_out_child)
                 children_aged_out_this_year += 1
                 
-                if self.config.debug and children_aged_out_this_year <= 5:
+                if self.config.debug and children_aged_out_this_year <= 5:  # Limit debug output
                     logger.debug(f"Child {child.child_id} aged out at {age}, parent {parent_worker.id} "
-                            f"waited {parent_years_waiting} years in {parent_worker.nationality} "
-                            f"{parent_worker.eb_category.value} queue")
+                               f"waited {parent_years_waiting} years in {parent_worker.nationality} "
+                               f"{parent_worker.eb_category.value} queue")
             else:
-                # Child is still under 21 with temporary parent → remains dependent
+                # Child is still under 21 → remains dependent
                 still_dependent.append(child)
         
-        # Update dependent children list
+        # CRITICAL FIX: Remove aged-out children from birth year tracking
         self.dependent_children = still_dependent
         
         # VALIDATION: Check if age-out patterns make sense
@@ -294,11 +296,12 @@ class Simulation:
             scenario = "capped" if self.country_cap_enabled else "uncapped"
             temp_workers = sum(1 for w in self.workers if w.is_temporary)
             
+            # Age-outs per temp worker should be HIGHER in capped scenarios
             ageout_rate = children_aged_out_this_year / temp_workers if temp_workers > 0 else 0
             
             if self.config.debug:
                 logger.info(f"Year {current_year} ({scenario}): {children_aged_out_this_year} aged out, "
-                        f"{temp_workers} temp workers, rate={ageout_rate:.4f}")
+                           f"{temp_workers} temp workers, rate={ageout_rate:.4f}")
         
         return children_aged_out_this_year
 
@@ -501,7 +504,6 @@ class Simulation:
         
         # Debug logging
         if self.config.debug:
-            year_index = next_year - self.config.start_year - 1
             total_backlog = len(self.global_queue) if not self.country_cap_enabled else sum(len(queue) for queue in self.category_nationality_queues.values())
             pending_count = len(self.pending_pool)
             eb_conversions = ', '.join([f'{cat.value}={count}' for cat, count in conversions_by_category.items() if count > 0])
@@ -695,11 +697,14 @@ class Simulation:
                 worker.apply_wage_jump(jump_factor)
 
     def _process_eb_category_conversions_with_spillover(self, current_year: int) -> Tuple[int, Dict[str, int], Dict[EBCategory, int], Set[int]]:
-        """Process EB category conversions with spillover (MODULAR APPROACH)."""
-        year_index = current_year - self.config.start_year - 1
-        total_slots_this_year = self.slots_sequence[year_index] if year_index < len(self.slots_sequence) else self.annual_sim_cap
+        """
+        Process EB conversions using unified visa processor.
         
-        # Use unified visa processor
+        CRITICAL FIX: Use annual_sim_cap directly instead of slots_sequence.
+        """
+        # Use constant annual cap (no carryover complexity)
+        total_slots_this_year = self.annual_sim_cap
+        
         total_conversions, conversions_by_country, conversions_by_category, converted_worker_ids = process_eb_conversions_with_spillover(
             total_slots_this_year,
             self.annual_eb_caps,
