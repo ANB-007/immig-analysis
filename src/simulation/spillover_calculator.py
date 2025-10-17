@@ -1,160 +1,85 @@
-# src/simulation/spillover_calculator.py
 """
-Pure mathematical spillover calculator - no artificial inefficiencies.
-Models the spillover system as statutorily intended by INA Section 203(b).
+Spillover Allocation Calculator
+Handles redistribution of unused EB slots from low-demand to high-demand countries.
 """
 
-from typing import Dict, Tuple
-from collections import deque
-from .models import EBCategory
+import logging
+from typing import Dict
+
+logger = logging.getLogger(__name__)
 
 
-def calculate_spillover_pools(
-    base_pools: Dict[EBCategory, int],
-    utilization_capacities: Dict[EBCategory, int],
-    realistic_spillover: bool = True
-) -> Dict[EBCategory, int]:
+def calculate_spillover_allocations(
+    available_slots: int,
+    per_country_caps: Dict[str, int],
+    backlog_by_country: Dict[str, int],
+    used_by_country: Dict[str, int]
+) -> Dict[str, int]:
     """
-    Calculate spillover pools with mathematically perfect spillover.
+    Calculate spillover slot allocations for countries with remaining demand.
     
-    This models the spillover system as Congress intended:
-    - Unused visas from lower-demand categories flow to higher-demand categories
-    - NO visas are wasted during spillover (100% efficiency)
-    - The only constraint is per-country caps within each category
+    Spillover rules:
+    1. Slots come from countries that didn't use their full allocation
+    2. Distributed to countries with backlogs, prioritizing highest backlogs
+    3. Still respects per-country cap (can't exceed original cap even with spillover)
     
     Args:
-        base_pools: Base allocation by EB category (statutory shares)
-        utilization_capacities: Maximum usable visas by category under per-country caps
-        realistic_spillover: If False, applies perfect multi-iteration spillover
+        available_slots: Total unused slots available for spillover
+        per_country_caps: Original per-country cap for each country
+        backlog_by_country: Current backlog size for each country
+        used_by_country: How many slots each country already used in Phase 1
         
     Returns:
-        Final visa pools after spillover redistribution
+        Dict mapping country -> additional slots allocated through spillover
     """
-    # Use perfect spillover for both modes
-    # The "realistic" parameter is kept for API compatibility but doesn't change behavior
-    return _apply_perfect_spillover(base_pools, utilization_capacities)
-
-
-def _apply_perfect_spillover(
-    base_pools: Dict[EBCategory, int],
-    utilization_capacities: Dict[EBCategory, int]
-) -> Dict[EBCategory, int]:
-    """
-    Apply perfect spillover as statutorily intended.
+    if available_slots <= 0:
+        return {country: 0 for country in per_country_caps.keys()}
     
-    Spillover cascade (INA Section 203(b)):
-    1. EB-4 → EB-1 (special immigrants barely used)
-    2. EB-5 → EB-1 (investors barely used)
-    3. EB-1 → EB-2 (priority workers with unused visas)
-    4. EB-2 → EB-3 (advanced degree with unused visas)
-    5. EB-3 → EB-1 (skilled workers back to first preference if still unused)
+    spillover_allocations = {country: 0 for country in per_country_caps.keys()}
     
-    This iterates until no more spillover is possible (equilibrium reached).
-    """
-    pools = base_pools.copy()
-    max_iterations = 10  # Prevent infinite loops (equilibrium usually reached in 2-3 iterations)
+    # Identify countries with remaining capacity
+    countries_with_demand = []
     
-    for iteration in range(max_iterations):
-        spillover_occurred = False
+    for country in per_country_caps.keys():
+        backlog = backlog_by_country.get(country, 0)
+        used = used_by_country.get(country, 0)
+        cap = per_country_caps[country]
         
-        # Standard spillover order per INA Section 203(b)
-        spillover_pairs = [
-            (EBCategory.EB4, EBCategory.EB1),  # Special immigrants → Priority workers
-            (EBCategory.EB5, EBCategory.EB1),  # Investors → Priority workers
-            (EBCategory.EB1, EBCategory.EB2),  # Priority workers → Advanced degree
-            (EBCategory.EB2, EBCategory.EB3),  # Advanced degree → Skilled workers
-            (EBCategory.EB3, EBCategory.EB1),  # Skilled workers → Priority workers (circular)
-        ]
+        # Country has demand if: has backlog AND hasn't hit per-country cap yet
+        remaining_capacity = cap - used
         
-        for source_cat, target_cat in spillover_pairs:
-            source_available = pools[source_cat]
-            source_capacity = utilization_capacities.get(source_cat, 0)
-            
-            # How many visas can this category actually use?
-            source_used = min(source_available, source_capacity)
-            source_unused = source_available - source_used
-            
-            if source_unused > 0:
-                # Transfer ALL unused visas to target category (100% efficiency)
-                pools[source_cat] = source_used
-                pools[target_cat] += source_unused
-                spillover_occurred = True
-        
-        # If no spillover happened this iteration, we've reached equilibrium
-        if not spillover_occurred:
+        if backlog > 0 and remaining_capacity > 0:
+            countries_with_demand.append({
+                'country': country,
+                'backlog': backlog,
+                'remaining_capacity': remaining_capacity
+            })
+    
+    if not countries_with_demand:
+        logger.debug("No countries with remaining demand for spillover")
+        return spillover_allocations
+    
+    # Sort by backlog size (highest first)
+    countries_with_demand.sort(key=lambda x: x['backlog'], reverse=True)
+    
+    # Distribute spillover slots
+    slots_to_distribute = available_slots
+    
+    for country_info in countries_with_demand:
+        if slots_to_distribute <= 0:
             break
-    
-    return pools
-
-
-def calculate_utilization_capacities(
-    category_queues: Dict[Tuple[EBCategory, str], 'deque'],
-    per_country_caps_by_category: Dict[EBCategory, Dict[str, int]],
-    temp_nationality_distribution: Dict[str, float]
-) -> Dict[EBCategory, int]:
-    """
-    Calculate maximum utilizable capacity under per-country caps.
-    
-    This represents the ONLY constraint that creates underutilization:
-    Per-country caps within each EB category (7% rule).
-    
-    Example:
-        EB-2 has 100 total visas available
-        India queue: 500 people, but country cap = 7 visas
-        China queue: 200 people, but country cap = 7 visas
-        Other queue: 10 people, cap = 86 visas
         
-        Utilization capacity = min(500, 7) + min(200, 7) + min(10, 86)
-                             = 7 + 7 + 10 = 24 visas
+        country = country_info['country']
+        remaining_capacity = country_info['remaining_capacity']
+        backlog = country_info['backlog']
         
-        Unused: 100 - 24 = 76 visas spillover to EB-3
-    
-    Args:
-        category_queues: Queue sizes by (EB category, nationality)
-        per_country_caps_by_category: Per-country limits by EB category
-        temp_nationality_distribution: Nationality distribution for queue keys
+        # Allocate up to remaining capacity or available slots, whichever is smaller
+        allocation = min(remaining_capacity, backlog, slots_to_distribute)
         
-    Returns:
-        Maximum usable visas by EB category (binding constraint)
-    """
-    utilization_capacity = {}
-    
-    for category in EBCategory:
-        capacity = 0
-        per_country_caps = per_country_caps_by_category.get(category, {})
+        spillover_allocations[country] = allocation
+        slots_to_distribute -= allocation
         
-        for nationality in temp_nationality_distribution.keys():
-            queue_key = (category, nationality)
-            queue_size = len(category_queues.get(queue_key, []))
-            country_cap = per_country_caps.get(nationality, 0)
-            
-            # Can use at most min(queue_size, country_cap) for this nationality
-            # This is the ONLY constraint - no artificial inefficiencies
-            capacity += min(queue_size, country_cap)
-        
-        utilization_capacity[category] = capacity
+        logger.debug(f"Spillover: {country} gets +{allocation} slots "
+                    f"(backlog={backlog}, capacity={remaining_capacity})")
     
-    return utilization_capacity
-
-
-def calculate_final_unused_visas(
-    pools_after_spillover: Dict[EBCategory, int],
-    utilization_capacities: Dict[EBCategory, int]
-) -> int:
-    """
-    Calculate how many visas remain unused after perfect spillover.
-    
-    These are visas that CANNOT be used due to per-country caps binding
-    across ALL categories simultaneously.
-    
-    Returns:
-        Total unused visas (should be minimized by perfect spillover)
-    """
-    total_unused = 0
-    
-    for category, available in pools_after_spillover.items():
-        capacity = utilization_capacities.get(category, 0)
-        unused = max(0, available - capacity)
-        total_unused += unused
-    
-    return total_unused
+    return spillover_allocations

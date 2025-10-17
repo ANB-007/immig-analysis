@@ -9,6 +9,7 @@ import math
 from typing import List, Optional, Dict, Tuple, Set
 from collections import defaultdict, deque
 import numpy as np
+from .visa_processor import process_eb_conversions_with_spillover
 
 from .models import (
     SimulationConfig, SimulationState, Worker, WorkerStatus, EBCategory,
@@ -694,12 +695,11 @@ class Simulation:
                 worker.apply_wage_jump(jump_factor)
 
     def _process_eb_category_conversions_with_spillover(self, current_year: int) -> Tuple[int, Dict[str, int], Dict[EBCategory, int], Set[int]]:
-        """Process EB conversions using modular visa processing system."""
+        """Process EB category conversions with spillover (MODULAR APPROACH)."""
         year_index = current_year - self.config.start_year - 1
         total_slots_this_year = self.slots_sequence[year_index] if year_index < len(self.slots_sequence) else self.annual_sim_cap
         
-        from .visa_processor import process_eb_conversions_with_spillover
-        
+        # Use unified visa processor
         total_conversions, conversions_by_country, conversions_by_category, converted_worker_ids = process_eb_conversions_with_spillover(
             total_slots_this_year,
             self.annual_eb_caps,
