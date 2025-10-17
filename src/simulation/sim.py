@@ -251,16 +251,20 @@ class Simulation:
             # CRITICAL: Only process if parent still exists and is temporary
             if not parent_worker:
                 logger.error(f"CRITICAL BUG: parent {child.parent_worker_id} doesn't exist")
+                raise RuntimeError(f"CRITICAL BUG: parent {child.parent_worker_id} doesn't exist")
                 # Parent no longer exists (edge case) - remove child
-                continue
                 
             if parent_worker.is_permanent:
                 # This should NOT happen!
                 # Children of converted parents should have been removed in _remove_children_of_converted_parents
-                logger.error(f"CRITICAL BUG: Child {child.child_id} has permanent parent {parent_worker.id} "
-                            f"but wasn't removed when parent converted in year {parent_worker.conversion_year}!")
-                # Remove this child (parent already converted, child is safe)
-                continue
+                logger.error(
+                    f"CRITICAL BUG: Child {child.child_id} has permanent parent {parent_worker.id} "
+                    f"but wasn't removed when parent converted in year {parent_worker.conversion_year}!"
+                )
+                raise RuntimeError(
+                    f"CRITICAL BUG: Child {child.child_id} has permanent parent {parent_worker.id} "
+                    f"but wasn't removed when parent converted in year {parent_worker.conversion_year}!"
+                )
             
             # Child's parent is still temporary - check if child ages out
             if age >= CHILD_AGEOUT_AGE:
