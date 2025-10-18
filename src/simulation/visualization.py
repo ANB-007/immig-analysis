@@ -208,61 +208,99 @@ class SimulationVisualizer:
         ax.legend()
         ax.grid(True, alpha=0.3)
         
-        # 4. EB-2 Backlog by Nationality (Most Critical)
+        # 4. EB-2 Backlog by Nationality (Most Critical) - WITH FAMILY-ADJUSTED
         ax = axes[1, 0]
         nationalities = ['India', 'China', 'Other']
-        
+
+        # Principals only
         eb2_uncapped = [backlog_uncapped.backlog_by_category_nationality.get((EBCategory.EB2, nat), 0) for nat in nationalities]
         eb2_capped = [backlog_capped.backlog_by_category_nationality.get((EBCategory.EB2, nat), 0) for nat in nationalities]
-        
+
+        # Family-adjusted (principals + spouses + children)
+        eb2_uncapped_family = [backlog_uncapped.family_adjusted_backlog_by_category_nationality.get((EBCategory.EB2, nat), 0) for nat in nationalities]
+        eb2_capped_family = [backlog_capped.family_adjusted_backlog_by_category_nationality.get((EBCategory.EB2, nat), 0) for nat in nationalities]
+
         x = np.arange(len(nationalities))
-        ax.bar(x - width/2, eb2_uncapped, width, label='No Per-Country Cap', alpha=0.8, color=uncapped_color)
-        ax.bar(x + width/2, eb2_capped, width, label='7% Per-Country Cap', alpha=0.8, color=capped_color)
-        
+        bar_width = 0.2  # Narrower bars for 4 groups
+
+        # Plot principals only (solid bars)
+        ax.bar(x - 1.5*bar_width, eb2_uncapped, bar_width, label='No Cap (Principals)', alpha=0.8, color=uncapped_color)
+        ax.bar(x - 0.5*bar_width, eb2_capped, bar_width, label='7% Cap (Principals)', alpha=0.8, color=capped_color)
+
+        # Plot family-adjusted (hatched bars)
+        ax.bar(x + 0.5*bar_width, eb2_uncapped_family, bar_width, label='No Cap (With Families)', alpha=0.7, color=uncapped_color, hatch='///')
+        ax.bar(x + 1.5*bar_width, eb2_capped_family, bar_width, label='7% Cap (With Families)', alpha=0.7, color=capped_color, hatch='///')
+
         ax.set_title('EB-2 Final Backlog by Nationality\n(Advanced Degree Professionals)', fontsize=12, fontweight='bold')
         ax.set_xlabel('Nationality')
-        ax.set_ylabel('Backlog Size')
+        ax.set_ylabel('Backlog Size (Number of People)')
         ax.set_xticks(x)
         ax.set_xticklabels(nationalities)
-        ax.legend()
+        ax.legend(loc='best', fontsize=9)
         ax.grid(True, alpha=0.3, axis='y')
         ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{x:,.0f}'))
-        
-        # 5. EB-3 Backlog by Nationality
+            
+        # 5. EB-3 Backlog by Nationality - WITH FAMILY-ADJUSTED
         ax = axes[1, 1]
+
+        # Principals only
         eb3_uncapped = [backlog_uncapped.backlog_by_category_nationality.get((EBCategory.EB3, nat), 0) for nat in nationalities]
         eb3_capped = [backlog_capped.backlog_by_category_nationality.get((EBCategory.EB3, nat), 0) for nat in nationalities]
-        
-        ax.bar(x - width/2, eb3_uncapped, width, label='No Per-Country Cap', alpha=0.8, color=uncapped_color)
-        ax.bar(x + width/2, eb3_capped, width, label='7% Per-Country Cap', alpha=0.8, color=capped_color)
-        
+
+        # Family-adjusted (principals + spouses + children)
+        eb3_uncapped_family = [backlog_uncapped.family_adjusted_backlog_by_category_nationality.get((EBCategory.EB3, nat), 0) for nat in nationalities]
+        eb3_capped_family = [backlog_capped.family_adjusted_backlog_by_category_nationality.get((EBCategory.EB3, nat), 0) for nat in nationalities]
+
+        x = np.arange(len(nationalities))
+        bar_width = 0.2  # Narrower bars for 4 groups
+
+        # Plot principals only (solid bars)
+        ax.bar(x - 1.5*bar_width, eb3_uncapped, bar_width, label='No Cap (Principals)', alpha=0.8, color=uncapped_color)
+        ax.bar(x - 0.5*bar_width, eb3_capped, bar_width, label='7% Cap (Principals)', alpha=0.8, color=capped_color)
+
+        # Plot family-adjusted (hatched bars)
+        ax.bar(x + 0.5*bar_width, eb3_uncapped_family, bar_width, label='No Cap (With Families)', alpha=0.7, color=uncapped_color, hatch='///')
+        ax.bar(x + 1.5*bar_width, eb3_capped_family, bar_width, label='7% Cap (With Families)', alpha=0.7, color=capped_color, hatch='///')
+
         ax.set_title('EB-3 Final Backlog by Nationality\n(Skilled Workers)', fontsize=12, fontweight='bold')
         ax.set_xlabel('Nationality')
-        ax.set_ylabel('Backlog Size')
+        ax.set_ylabel('Backlog Size (Number of People)')
         ax.set_xticks(x)
         ax.set_xticklabels(nationalities)
-        ax.legend()
+        ax.legend(loc='best', fontsize=9)
         ax.grid(True, alpha=0.3, axis='y')
         ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{x:,.0f}'))
         
-        # 6. Total EB Category Backlogs (Final Year)
+        # 6. Total EB Category Backlogs (Final Year) - WITH FAMILY-ADJUSTED
         ax = axes[1, 2]
         categories = [EBCategory.EB1, EBCategory.EB2, EBCategory.EB3]
         category_labels = [cat.value for cat in categories]
-        
+
+        # Principals only
         uncapped_backlogs = [backlog_uncapped.backlog_by_eb_category.get(cat, 0) for cat in categories]
         capped_backlogs = [backlog_capped.backlog_by_eb_category.get(cat, 0) for cat in categories]
-        
+
+        # Family-adjusted (principals + spouses + children)
+        uncapped_backlogs_family = [backlog_uncapped.family_adjusted_backlog_by_eb_category.get(cat, 0) for cat in categories]
+        capped_backlogs_family = [backlog_capped.family_adjusted_backlog_by_eb_category.get(cat, 0) for cat in categories]
+
         x = np.arange(len(categories))
-        ax.bar(x - width/2, uncapped_backlogs, width, label='No Per-Country Cap', alpha=0.8, color=uncapped_color)
-        ax.bar(x + width/2, capped_backlogs, width, label='7% Per-Country Cap', alpha=0.8, color=capped_color)
-        
-        ax.set_title('Final EB Category Backlogs', fontsize=12, fontweight='bold')
+        bar_width = 0.2  # Narrower bars for 4 groups
+
+        # Plot principals only (solid bars)
+        ax.bar(x - 1.5*bar_width, uncapped_backlogs, bar_width, label='No Cap (Principals)', alpha=0.8, color=uncapped_color)
+        ax.bar(x - 0.5*bar_width, capped_backlogs, bar_width, label='7% Cap (Principals)', alpha=0.8, color=capped_color)
+
+        # Plot family-adjusted (hatched bars)
+        ax.bar(x + 0.5*bar_width, uncapped_backlogs_family, bar_width, label='No Cap (With Families)', alpha=0.7, color=uncapped_color, hatch='///')
+        ax.bar(x + 1.5*bar_width, capped_backlogs_family, bar_width, label='7% Cap (With Families)', alpha=0.7, color=capped_color, hatch='///')
+
+        ax.set_title('Final EB Category Backlogs\n(Principals vs Families)', fontsize=12, fontweight='bold')
         ax.set_xlabel('EB Category')
-        ax.set_ylabel('Total Backlog Size')
+        ax.set_ylabel('Total Backlog Size (Number of People)')
         ax.set_xticks(x)
         ax.set_xticklabels(category_labels)
-        ax.legend()
+        ax.legend(loc='best', fontsize=9)
         ax.grid(True, alpha=0.3, axis='y')
         ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{x:,.0f}'))
         
@@ -308,6 +346,7 @@ class SimulationVisualizer:
         ax.legend()
         ax.grid(True, alpha=0.3)
         ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{x*100:.1f}%'))
+        
         
         # 9. Average Wage Comparison
         ax = axes[2, 2]

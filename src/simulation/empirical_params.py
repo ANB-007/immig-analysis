@@ -29,9 +29,9 @@ JOB_CHANGE_PROB_PERM = 0.12  # 12% annual job change probability for permanent w
 JOB_CHANGE_PROB_TEMP = 0.096  # 9.6% for temporary (20% less mobile)
 
 # Wage jump parameters on job change
-WAGE_JUMP_FACTOR_MEAN_PERM = 1.15  # 15% average wage jump for permanent workers
+WAGE_JUMP_FACTOR_MEAN_PERM = 1.50  # 15% average wage jump for permanent workers
 WAGE_JUMP_FACTOR_STD_PERM = 0.08  # 8% standard deviation
-WAGE_JUMP_FACTOR_MEAN_TEMP = 1.08  # 8% average wage jump for temporary workers
+WAGE_JUMP_FACTOR_MEAN_TEMP = 1.12  # 8% average wage jump for temporary workers
 WAGE_JUMP_FACTOR_STD_TEMP = 0.06  # 6% standard deviation
 
 # Nationality distribution for H-1B workers

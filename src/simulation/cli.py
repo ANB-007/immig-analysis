@@ -427,18 +427,51 @@ def print_eb_category_comparison_summary(states_uncapped, states_capped, backlog
         print(f"  {category.value}: Uncapped={uncapped_backlog:,}, Capped={capped_backlog:,}, Diff={diff:,}")
 
     print(f"\nCRITICAL EB-2 BACKLOG BREAKDOWN (Advanced Degree Professionals):")
+    print(f"  Format: Principals only | With families (principals + spouses + children)")
     for nationality in ['India', 'China', 'Other']:
+        # Principals only
         uncapped_eb2 = backlog_uncapped.backlog_by_category_nationality.get((EBCategory.EB2, nationality), 0)
         capped_eb2 = backlog_capped.backlog_by_category_nationality.get((EBCategory.EB2, nationality), 0)
         diff = capped_eb2 - uncapped_eb2
-        print(f"  {nationality}: Uncapped={uncapped_eb2:,}, Capped={capped_eb2:,}, Additional backlog={diff:,}")
+        
+        # Family-adjusted (principals + spouses + children)
+        uncapped_eb2_family = backlog_uncapped.family_adjusted_backlog_by_category_nationality.get((EBCategory.EB2, nationality), 0)
+        capped_eb2_family = backlog_capped.family_adjusted_backlog_by_category_nationality.get((EBCategory.EB2, nationality), 0)
+        diff_family = capped_eb2_family - uncapped_eb2_family
+        
+        print(f"  {nationality}:")
+        print(f"    Principals: Uncapped={uncapped_eb2:,}, Capped={capped_eb2:,}, Additional={diff:,}")
+        print(f"    With families: Uncapped={uncapped_eb2_family:,}, Capped={capped_eb2_family:,}, Additional={diff_family:,}")
 
     print(f"\nEB-3 BACKLOG BREAKDOWN (Skilled Workers):")
+    print(f"  Format: Principals only | With families (principals + spouses + children)")
     for nationality in ['India', 'China', 'Other']:
+        # Principals only
         uncapped_eb3 = backlog_uncapped.backlog_by_category_nationality.get((EBCategory.EB3, nationality), 0)
         capped_eb3 = backlog_capped.backlog_by_category_nationality.get((EBCategory.EB3, nationality), 0)
         diff = capped_eb3 - uncapped_eb3
-        print(f"  {nationality}: Uncapped={uncapped_eb3:,}, Capped={capped_eb3:,}, Additional backlog={diff:,}")
+        
+        # Family-adjusted (principals + spouses + children)
+        uncapped_eb3_family = backlog_uncapped.family_adjusted_backlog_by_category_nationality.get((EBCategory.EB3, nationality), 0)
+        capped_eb3_family = backlog_capped.family_adjusted_backlog_by_category_nationality.get((EBCategory.EB3, nationality), 0)
+        diff_family = capped_eb3_family - uncapped_eb3_family
+        
+        print(f"  {nationality}:")
+        print(f"    Principals: Uncapped={uncapped_eb3:,}, Capped={capped_eb3:,}, Additional={diff:,}")
+        print(f"    With families: Uncapped={uncapped_eb3_family:,}, Capped={capped_eb3_family:,}, Additional={diff_family:,}")
+    
+    # Total backlog summary (principals vs families)
+    print(f"\nTOTAL BACKLOG SUMMARY:")
+    print(f"  Uncapped scenario:")
+    print(f"    Principals only: {backlog_uncapped.total_backlog:,}")
+    print(f"    With families: {backlog_uncapped.total_family_adjusted_backlog:,}")
+    print(f"  Capped scenario:")
+    print(f"    Principals only: {backlog_capped.total_backlog:,}")
+    print(f"    With families: {backlog_capped.total_family_adjusted_backlog:,}")
+    print(f"  Additional people in backlog due to per-country caps:")
+    print(f"    Principals: {backlog_capped.total_backlog - backlog_uncapped.total_backlog:,}")
+    print(f"    With families: {backlog_capped.total_family_adjusted_backlog - backlog_uncapped.total_family_adjusted_backlog:,}")
+
 
     # Child impact analysis
     print(f"\nCHILD AGE-OUT IMPACT:")
