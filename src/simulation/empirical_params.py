@@ -77,7 +77,6 @@ CHILD_AGEOUT_AGE = 21  # Age at which children age out
 SPOUSE_MULTIPLIER = 2.0  # Multiplier for principals to account for spouses (principal + spouse = 2)
 # Family-adjusted backlog = (principals × SPOUSE_MULTIPLIER) + dependent_children
 
-
 def calculate_annual_eb_caps(initial_workers: int) -> Dict[EBCategory, int]:
     """
     Calculate annual EB category caps based on simulation size.
