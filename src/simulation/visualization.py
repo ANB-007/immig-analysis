@@ -30,7 +30,13 @@ except ImportError:
     PLOTLY_AVAILABLE = False
     warnings.warn("Plotly not available. Interactive charts will be disabled.")
 
-from .empirical_params import OUTPUT_DIR, PLOT_DPI, PLOT_STYLE, PLOT_PALETTE, SAVE_PLOTS
+# VISUALIZATION CONSTANTS (defined here instead of importing from empirical_params)
+OUTPUT_DIR = 'output'
+PLOT_DPI = 300
+PLOT_STYLE = 'whitegrid'
+PLOT_PALETTE = 'Set2'
+SAVE_PLOTS = True
+
 from .models import BacklogAnalysis, EBCategory
 
 # Configure logging and plotting
