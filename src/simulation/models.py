@@ -1,9 +1,9 @@
 # src/simulation/models.py
 """
 Core data models for immigration simulation.
-COMPLETE FIX: All required models for child age-out tracking.
+UPDATED: Added family-adjusted backlog calculation methods.
+Formula: Family backlog = (principals × 2) + dependent_children
 """
-
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Set, Tuple, Any
 from enum import Enum
@@ -13,16 +13,19 @@ from collections import defaultdict
 
 logger = logging.getLogger(__name__)
 
+
 class WorkerStatus(Enum):
     TEMPORARY = "temporary"
     PERMANENT = "permanent"
 
+
 class EBCategory(Enum):
     EB1 = "EB-1"
-    EB2 = "EB-2" 
+    EB2 = "EB-2"
     EB3 = "EB-3"
     EB4 = "EB-4"
     EB5 = "EB-5"
+
 
 @dataclass
 class Worker:
@@ -59,6 +62,7 @@ class Worker:
         """Apply wage jump due to job change."""
         self.wage *= factor
 
+
 @dataclass
 class TemporaryWorker:
     """Lightweight representation for queue management."""
@@ -71,6 +75,7 @@ class TemporaryWorker:
     def __post_init__(self):
         from .empirical_params import PERM_FILING_DELAY
         self.eligible_year = self.entry_year + PERM_FILING_DELAY
+
 
 @dataclass
 class DependentChild:
@@ -89,6 +94,7 @@ class DependentChild:
         """Years since parent entered H-1B status."""
         return year - self.entry_year
 
+
 @dataclass
 class AgedOutChild:
     """Child who aged out while parent was still temporary."""
@@ -99,6 +105,7 @@ class AgedOutChild:
     aged_out_year: int
     age_at_ageout: int
     parent_years_in_queue: int
+
 
 @dataclass
 class WageStatistics:
@@ -111,54 +118,56 @@ class WageStatistics:
     def calculate(cls, workers: List[Worker]) -> 'WageStatistics':
         if not workers:
             return cls(0.0, 0.0, 0.0, 0.0)
-        
+
         total_wages = sum(w.wage for w in workers)
         avg_wage_total = total_wages / len(workers)
         total_wage_bill = total_wages
-        
+
         perm_workers = [w for w in workers if w.is_permanent]
         temp_workers = [w for w in workers if w.is_temporary]
-        
+
         avg_wage_permanent = sum(w.wage for w in perm_workers) / len(perm_workers) if perm_workers else 0.0
         avg_wage_temporary = sum(w.wage for w in temp_workers) / len(temp_workers) if temp_workers else 0.0
-        
+
         return cls(avg_wage_total, avg_wage_permanent, avg_wage_temporary, total_wage_bill)
 
-@dataclass 
+
+@dataclass
 class NationalityStatistics:
     permanent_nationalities: Dict[str, int]
     temporary_nationalities: Dict[str, int]
-    
+
     @classmethod
     def calculate(cls, workers: List[Worker]) -> 'NationalityStatistics':
         perm_nationalities = {}
         temp_nationalities = {}
-        
+
         for worker in workers:
             if worker.is_permanent:
                 perm_nationalities[worker.nationality] = perm_nationalities.get(worker.nationality, 0) + 1
             else:
                 temp_nationalities[worker.nationality] = temp_nationalities.get(worker.nationality, 0) + 1
-        
+
         return cls(perm_nationalities, temp_nationalities)
-    
+
     def get_temporary_distribution(self) -> Dict[str, float]:
         total = sum(self.temporary_nationalities.values())
         if total == 0:
             return {}
         return {nat: count / total for nat, count in self.temporary_nationalities.items()}
-    
+
     def get_top_temporary_nationalities(self, top_n: int = 3) -> List[Tuple[str, int]]:
         return sorted(self.temporary_nationalities.items(), key=lambda x: x[1], reverse=True)[:top_n]
+
 
 @dataclass
 class EBCategoryStatistics:
     conversions_by_category: Dict[EBCategory, int] = field(default_factory=dict)
     backlogs_by_category: Dict[EBCategory, int] = field(default_factory=dict)
     backlogs_by_category_nationality: Dict[Tuple[EBCategory, str], int] = field(default_factory=dict)
-    
+
     @classmethod
-    def calculate(cls, converted_by_category: Dict[EBCategory, int], 
+    def calculate(cls, converted_by_category: Dict[EBCategory, int],
                   backlog_by_category: Dict[EBCategory, int],
                   backlog_by_category_nationality: Dict[Tuple[EBCategory, str], int]) -> 'EBCategoryStatistics':
         return cls(
@@ -167,6 +176,7 @@ class EBCategoryStatistics:
             backlogs_by_category_nationality=backlog_by_category_nationality.copy()
         )
 
+
 @dataclass
 class ChildAgeoutStatistics:
     """Statistics for child age-out tracking."""
@@ -174,29 +184,29 @@ class ChildAgeoutStatistics:
     aged_out_this_year: int
     children_at_risk: int
     aged_out_by_nationality: Dict[str, int]
-    aged_out_by_eb_category: Dict[EBCategory, int] 
-    
+    aged_out_by_eb_category: Dict[EBCategory, int]
+
     @classmethod
-    def calculate(cls, aged_out_children: List[AgedOutChild], 
+    def calculate(cls, aged_out_children: List[AgedOutChild],
                   dependent_children: List[DependentChild],
                   current_year: int,
                   aged_out_this_year: int) -> 'ChildAgeoutStatistics':
         """Calculate child age-out statistics from current data."""
-        
+
         # Count aged out by nationality
         aged_out_by_nationality = defaultdict(int)
         for child in aged_out_children:
             aged_out_by_nationality[child.nationality] += 1
-        
+
         # Count aged out by parent EB category
         aged_out_by_eb_category = defaultdict(int)
         for child in aged_out_children:
             if child.parent_eb_category:
                 aged_out_by_eb_category[child.parent_eb_category] += 1
-        
+
         # Count children currently at risk
         children_at_risk = len(dependent_children)
-        
+
         return cls(
             total_aged_out=len(aged_out_children),
             aged_out_this_year=aged_out_this_year,
@@ -204,6 +214,7 @@ class ChildAgeoutStatistics:
             aged_out_by_nationality=dict(aged_out_by_nationality),
             aged_out_by_eb_category=dict(aged_out_by_eb_category)
         )
+
 
 @dataclass
 class SimulationState:
@@ -217,7 +228,7 @@ class SimulationState:
     converted_temps: int
     avg_wage_total: float
     avg_wage_permanent: float
-    avg_wage_temporary: float  
+    avg_wage_temporary: float
     total_wage_bill: float
     top_temp_nationalities: List[Tuple[str, int]]
     converted_by_country: Dict[str, int]
@@ -226,22 +237,80 @@ class SimulationState:
     annual_conversion_cap: int
     cumulative_conversions: int
     h1b_share: float
-    
+
     # Child age-out data
     children_aged_out_this_year: int
     cumulative_children_aged_out: int
     children_at_risk: int
     aged_out_by_nationality: Dict[str, int]
-    
+
     # EB category data
     converted_by_eb_category: Dict[EBCategory, int]
     queue_backlog_by_eb_category: Dict[EBCategory, int]
     queue_backlog_by_eb_category_nationality: Dict[Tuple[EBCategory, str], int]
     aged_out_by_eb_category: Dict[EBCategory, int]
-    
+
     @property
     def permanent_share(self) -> float:
         return self.permanent_workers / self.total_workers if self.total_workers > 0 else 0.0
+
+    def calculate_family_adjusted_backlog(self) -> Dict[str, int]:
+        """
+        Calculate family-adjusted backlog: (principals × 2) + dependent_children.
+
+        Returns:
+            Dictionary mapping nationality to family-adjusted backlog size
+        """
+        from .empirical_params import SPOUSE_MULTIPLIER
+
+        family_backlog = {}
+        for nationality, principal_count in self.queue_backlog_by_country.items():
+            # Each principal counts as 2 (principal + spouse)
+            # Then add the dependent children still in queue for that nationality
+            family_backlog[nationality] = int(principal_count * SPOUSE_MULTIPLIER)
+
+        return family_backlog
+
+    def calculate_family_adjusted_backlog_with_children(self, dependent_children: List[DependentChild]) -> Dict[str, int]:
+        """
+        Calculate family-adjusted backlog including actual dependent children counts.
+        Formula: (principals × 2) + count of dependent children by nationality
+
+        Args:
+            dependent_children: List of all dependent children currently in queue
+
+        Returns:
+            Dictionary mapping nationality to total family backlog
+        """
+        from .empirical_params import SPOUSE_MULTIPLIER
+
+        # Count dependent children by nationality
+        children_by_nationality = defaultdict(int)
+        for child in dependent_children:
+            children_by_nationality[child.nationality] += 1
+
+        # Calculate family backlog
+        family_backlog = {}
+        for nationality, principal_count in self.queue_backlog_by_country.items():
+            principals_and_spouses = int(principal_count * SPOUSE_MULTIPLIER)
+            children_count = children_by_nationality.get(nationality, 0)
+            family_backlog[nationality] = principals_and_spouses + children_count
+
+        return family_backlog
+
+    def get_total_family_adjusted_backlog(self, dependent_children: List[DependentChild]) -> int:
+        """
+        Get total family-adjusted backlog across all nationalities.
+
+        Args:
+            dependent_children: List of all dependent children currently in queue
+
+        Returns:
+            Total family backlog size
+        """
+        family_backlog = self.calculate_family_adjusted_backlog_with_children(dependent_children)
+        return sum(family_backlog.values())
+
 
 @dataclass
 class BacklogAnalysis:
@@ -251,7 +320,10 @@ class BacklogAnalysis:
     backlog_by_country: Dict[str, int]
     backlog_by_eb_category: Dict[EBCategory, int] = field(default_factory=dict)
     backlog_by_category_nationality: Dict[Tuple[EBCategory, str], int] = field(default_factory=dict)
-    
+    # NEW: Family-adjusted backlogs
+    family_adjusted_backlog: Dict[str, int] = field(default_factory=dict)
+    total_family_adjusted_backlog: int = 0
+
     def to_dataframe(self):
         """Convert backlog analysis to pandas DataFrame for CSV export."""
         try:
@@ -260,61 +332,79 @@ class BacklogAnalysis:
             return {
                 'scenario': self.scenario_name,
                 'total_backlog': self.total_backlog,
+                'total_family_adjusted_backlog': self.total_family_adjusted_backlog,
                 **{f'backlog_{country}': count for country, count in self.backlog_by_country.items()},
+                **{f'family_backlog_{country}': count for country, count in self.family_adjusted_backlog.items()},
                 **{f'backlog_{cat.value}': count for cat, count in self.backlog_by_eb_category.items()},
-                **{f'backlog_{cat.value}_{nationality}': count 
+                **{f'backlog_{cat.value}_{nationality}': count
                    for (cat, nationality), count in self.backlog_by_category_nationality.items()}
             }
-        
+
         rows = []
-        
+
+        # Total backlog (principals only)
         rows.append({
             'scenario': self.scenario_name,
             'category': 'TOTAL',
             'nationality': 'ALL',
-            'backlog_size': self.total_backlog
+            'backlog_size': self.total_backlog,
+            'family_adjusted_backlog': self.total_family_adjusted_backlog
         })
-        
+
+        # By country (principals only)
         for country, backlog in self.backlog_by_country.items():
+            family_backlog = self.family_adjusted_backlog.get(country, 0)
             rows.append({
                 'scenario': self.scenario_name,
                 'category': 'ALL_CATEGORIES',
                 'nationality': country,
-                'backlog_size': backlog
+                'backlog_size': backlog,
+                'family_adjusted_backlog': family_backlog
             })
-        
+
+        # By category
         for category, backlog in self.backlog_by_eb_category.items():
             rows.append({
                 'scenario': self.scenario_name,
                 'category': category.value,
                 'nationality': 'ALL',
-                'backlog_size': backlog
+                'backlog_size': backlog,
+                'family_adjusted_backlog': 0  # Not calculated at category level
             })
-        
+
+        # By category and nationality
         for (category, nationality), backlog in self.backlog_by_category_nationality.items():
             rows.append({
                 'scenario': self.scenario_name,
                 'category': category.value,
                 'nationality': nationality,
-                'backlog_size': backlog
+                'backlog_size': backlog,
+                'family_adjusted_backlog': 0  # Not calculated at this granularity
             })
-        
+
         return pd.DataFrame(rows)
-    
+
     @classmethod
     def from_simulation(cls, sim: 'Simulation', scenario_name: str) -> 'BacklogAnalysis':
         """Create backlog analysis from completed simulation."""
         final_state = sim.states[-1]
-        
+
         total_backlog = sum(final_state.queue_backlog_by_country.values())
-        
+
+        # Calculate family-adjusted backlog
+        family_adjusted = final_state.calculate_family_adjusted_backlog_with_children(sim.dependent_children)
+        total_family_adjusted = sum(family_adjusted.values())
+
         return cls(
             scenario_name=scenario_name,
             total_backlog=total_backlog,
             backlog_by_country=final_state.queue_backlog_by_country.copy(),
             backlog_by_eb_category=final_state.queue_backlog_by_eb_category.copy(),
-            backlog_by_category_nationality=final_state.queue_backlog_by_eb_category_nationality.copy()
+            backlog_by_category_nationality=final_state.queue_backlog_by_eb_category_nationality.copy(),
+            family_adjusted_backlog=family_adjusted,
+            total_family_adjusted_backlog=total_family_adjusted
         )
+
 
 @dataclass
 class SimulationConfig:
@@ -328,7 +418,7 @@ class SimulationConfig:
     debug: bool = False
     start_year: int = 2025
     show_nationality_summary: bool = False
-    
+
     @property
     def output_dir(self) -> Path:
         """Get output directory path."""
