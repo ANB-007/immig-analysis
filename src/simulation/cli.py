@@ -391,29 +391,60 @@ def generate_eb_category_comparison_charts(states_uncapped, states_capped, backl
     years_capped = [state.year for state in states_capped]
     
     # 1. EB Category Conversions Over Time (Uncapped)
+    # Line ~1088 - EB Category Conversions Over Time (Uncapped) - WITH DISTINCT STYLES
     ax = axes[0, 0]
-    for category in [EBCategory.EB1, EBCategory.EB2, EBCategory.EB3]:  # Skip EB4/EB5 (usually 0)
-        conversions = [state.converted_by_eb_category.get(category, 0) for state in states_uncapped]
-        ax.plot(years_uncapped, conversions, label=f'{category.value}', 
-                color=eb_colors[category], linewidth=2, marker='o', markersize=3, alpha=0.8)
-    
+
+    line_styles = {
+        EBCategory.EB1: {'linestyle': '-', 'linewidth': 3, 'marker': 'o', 'markersize': 6},   # Solid, circle
+        EBCategory.EB2: {'linestyle': '--', 'linewidth': 3, 'marker': 's', 'markersize': 6},  # Dashed, square  
+        EBCategory.EB3: {'linestyle': '-.', 'linewidth': 3, 'marker': '^', 'markersize': 6}   # Dash-dot, triangle
+    }
+
+    for category in [EBCategory.EB1, EBCategory.EB2, EBCategory.EB3]:
+        conversions = [state.converted_by_eb_category.get(category, 0) for state in states_uncapped[2:]]
+        years_plot = [state.year for state in states_uncapped[2:]]
+        
+        style = line_styles[category]
+        ax.plot(years_plot, conversions, 
+                label=f'{category.value}', 
+                color=eb_colors[category],
+                linestyle=style['linestyle'],
+                linewidth=style['linewidth'],
+                marker=style['marker'],
+                markersize=style['markersize'],
+                markevery=max(1, len(years_plot)//10),
+                alpha=0.85)
+
     ax.set_title('EB Category Conversions Over Time\n(Uncapped Scenario)', fontsize=12, fontweight='bold')
     ax.set_xlabel('Year')
     ax.set_ylabel('Annual Conversions')
-    ax.legend()
+    ax.legend(loc='best', fontsize=10)
     ax.grid(True, alpha=0.3)
+
     
     # 2. EB Category Conversions Over Time (Capped)
+    # Line ~1108 - EB Category Conversions Over Time (Capped) - WITH DISTINCT STYLES
     ax = axes[0, 1]
+
     for category in [EBCategory.EB1, EBCategory.EB2, EBCategory.EB3]:
-        conversions = [state.converted_by_eb_category.get(category, 0) for state in states_capped]
-        ax.plot(years_capped, conversions, label=f'{category.value}', 
-                color=eb_colors[category], linewidth=2, marker='s', markersize=3, alpha=0.8)
-    
+        conversions = [state.converted_by_eb_category.get(category, 0) for state in states_capped[2:]]
+        years_plot = [state.year for state in states_capped[2:]]
+        
+        style = line_styles[category]
+        ax.plot(years_plot, conversions, 
+                label=f'{category.value}', 
+                color=eb_colors[category],
+                linestyle=style['linestyle'],
+                linewidth=style['linewidth'],
+                marker=style['marker'],
+                markersize=style['markersize'],
+                markevery=max(1, len(years_plot)//10),
+                alpha=0.85)
+
     ax.set_title('EB Category Conversions Over Time\n(Capped Scenario)', fontsize=12, fontweight='bold')
     ax.set_xlabel('Year')
     ax.set_ylabel('Annual Conversions')
-    ax.legend()
+    ax.legend(loc='best', fontsize=10)
     ax.grid(True, alpha=0.3)
     
     # 3. Children Aged Out Comparison

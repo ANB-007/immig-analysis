@@ -134,6 +134,7 @@ class VisaProcessor:
         total_conversions = len(converted_worker_ids)
         logger.info(f"Year {current_year} (Uncapped): Converted {total_conversions} workers")
         logger.debug(f"  By category: {dict(conversions_by_category)}")
+        logger.info(f"Uncapped conversions_by_category before return: {dict(conversions_by_category)}")
         return total_conversions, dict(conversions_by_country), conversions_by_category, converted_worker_ids
 
     def _process_capped_conversions(
