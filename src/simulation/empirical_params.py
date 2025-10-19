@@ -21,7 +21,7 @@ PER_COUNTRY_CAP_SHARE = 0.07  # 7% per-country limit
 
 # Worker lifecycle parameters
 STARTING_WAGE = 95_000  # Starting salary for new workers
-CONVERSION_WAGE_BUMP = 1.05  # 5% wage increase on conversion
+CONVERSION_WAGE_BUMP = 1.10  # 10% wage increase on conversion
 PERM_FILING_DELAY = 2  # Years between H-1B entry and PERM filing
 
 # Job mobility parameters
@@ -29,10 +29,10 @@ JOB_CHANGE_PROB_PERM = 0.12  # 12% annual job change probability for permanent w
 JOB_CHANGE_PROB_TEMP = 0.096  # 9.6% for temporary (20% less mobile)
 
 # Wage jump parameters on job change
-WAGE_JUMP_FACTOR_MEAN_PERM = 1.50  # 15% average wage jump for permanent workers
-WAGE_JUMP_FACTOR_STD_PERM = 0.08  # 8% standard deviation
-WAGE_JUMP_FACTOR_MEAN_TEMP = 1.12  # 8% average wage jump for temporary workers
-WAGE_JUMP_FACTOR_STD_TEMP = 0.06  # 6% standard deviation
+WAGE_JUMP_FACTOR_MEAN_PERM = 1.15  # 15% average wage jump for permanent workers
+WAGE_JUMP_FACTOR_STD_PERM = 0.01  # 1% standard deviation
+WAGE_JUMP_FACTOR_MEAN_TEMP = 1.05  # 5% average wage jump for temporary workers
+WAGE_JUMP_FACTOR_STD_TEMP = 0.01  # 1% standard deviation
 
 # Nationality distribution for H-1B workers
 TEMP_NATIONALITY_DISTRIBUTION = {
@@ -45,7 +45,7 @@ TEMP_NATIONALITY_DISTRIBUTION = {
 PERMANENT_NATIONALITY = "USA"
 
 # Carryover strategy
-CARRYOVER_FRACTION_STRATEGY = True
+CARRYOVER_FRACTION_STRATEGY = False
 
 from .models import EBCategory
 
@@ -73,7 +73,7 @@ CHILD_ENTRY_AGE_MEAN = 12.0  # Average age when child enters with H-1B parent
 CHILD_ENTRY_AGE_STD = 4.0  # Standard deviation of entry age
 CHILD_AGEOUT_AGE = 21  # Age at which children age out
 
-# Family backlog calculation parameters (NEW)
+# Family backlog calculation parameters 
 SPOUSE_MULTIPLIER = 2.0  # Multiplier for principals to account for spouses (principal + spouse = 2)
 # Family-adjusted backlog = (principals × SPOUSE_MULTIPLIER) + dependent_children
 

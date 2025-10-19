@@ -30,7 +30,7 @@ except ImportError:
     PLOTLY_AVAILABLE = False
     warnings.warn("Plotly not available. Interactive charts will be disabled.")
 
-# VISUALIZATION CONSTANTS (defined here instead of importing from empirical_params)
+# VISUALIZATION CONSTANTS 
 OUTPUT_DIR = 'output'
 PLOT_DPI = 300
 PLOT_STYLE = 'whitegrid'
