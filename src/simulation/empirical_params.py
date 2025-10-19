@@ -27,8 +27,8 @@ CONVERSION_WAGE_BUMP = 1.10  # 10% wage increase on conversion
 PERM_FILING_DELAY = 2  # Years between H-1B entry and PERM filing
 
 # NEW: Annual wage growth parameters (independent of job changes)
-ANNUAL_WAGE_GROWTH_PERM = 0.035  # 3.5% annual wage growth for permanent workers
-ANNUAL_WAGE_GROWTH_TEMP = 0.025  # 2.5% annual wage growth for temporary workers
+ANNUAL_WAGE_GROWTH_PERM = 0.050  # 5.0% annual wage growth for permanent workers
+ANNUAL_WAGE_GROWTH_TEMP = 0.010  # 1.0% annual wage growth for temporary workers
 
 # Job mobility parameters
 JOB_CHANGE_PROB_PERM = 0.12  # 12% annual job change probability for permanent workers

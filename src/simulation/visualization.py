@@ -228,8 +228,8 @@ class SimulationVisualizer:
         ax.bar(x - 0.5*bar_width, eb2_capped, bar_width, label='7% Cap (Principals)', alpha=0.8, color=capped_color)
 
         # Plot family-adjusted (hatched bars)
-        ax.bar(x + 0.5*bar_width, eb2_uncapped_family, bar_width, label='No Cap (With Families)', alpha=0.7, color=uncapped_color, hatch='///')
-        ax.bar(x + 1.5*bar_width, eb2_capped_family, bar_width, label='7% Cap (With Families)', alpha=0.7, color=capped_color, hatch='///')
+        ax.bar(x + 0.5*bar_width, eb2_uncapped_family, bar_width, label='No Cap (With Dependents)', alpha=0.7, color=uncapped_color, hatch='///')
+        ax.bar(x + 1.5*bar_width, eb2_capped_family, bar_width, label='7% Cap (With Dependents)', alpha=0.7, color=capped_color, hatch='///')
 
         ax.set_title('EB-2 Final Backlog by Nationality\n(Advanced Degree Professionals)', fontsize=12, fontweight='bold')
         ax.set_xlabel('Nationality')
@@ -259,8 +259,8 @@ class SimulationVisualizer:
         ax.bar(x - 0.5*bar_width, eb3_capped, bar_width, label='7% Cap (Principals)', alpha=0.8, color=capped_color)
 
         # Plot family-adjusted (hatched bars)
-        ax.bar(x + 0.5*bar_width, eb3_uncapped_family, bar_width, label='No Cap (With Families)', alpha=0.7, color=uncapped_color, hatch='///')
-        ax.bar(x + 1.5*bar_width, eb3_capped_family, bar_width, label='7% Cap (With Families)', alpha=0.7, color=capped_color, hatch='///')
+        ax.bar(x + 0.5*bar_width, eb3_uncapped_family, bar_width, label='No Cap (With Dependents)', alpha=0.7, color=uncapped_color, hatch='///')
+        ax.bar(x + 1.5*bar_width, eb3_capped_family, bar_width, label='7% Cap (With Dependents)', alpha=0.7, color=capped_color, hatch='///')
 
         ax.set_title('EB-3 Final Backlog by Nationality\n(Skilled Workers)', fontsize=12, fontweight='bold')
         ax.set_xlabel('Nationality')
@@ -292,10 +292,10 @@ class SimulationVisualizer:
         ax.bar(x - 0.5*bar_width, capped_backlogs, bar_width, label='7% Cap (Principals)', alpha=0.8, color=capped_color)
 
         # Plot family-adjusted (hatched bars)
-        ax.bar(x + 0.5*bar_width, uncapped_backlogs_family, bar_width, label='No Cap (With Families)', alpha=0.7, color=uncapped_color, hatch='///')
-        ax.bar(x + 1.5*bar_width, capped_backlogs_family, bar_width, label='7% Cap (With Families)', alpha=0.7, color=capped_color, hatch='///')
+        ax.bar(x + 0.5*bar_width, uncapped_backlogs_family, bar_width, label='No Cap (With Dependents)', alpha=0.7, color=uncapped_color, hatch='///')
+        ax.bar(x + 1.5*bar_width, capped_backlogs_family, bar_width, label='7% Cap (With Dependents)', alpha=0.7, color=capped_color, hatch='///')
 
-        ax.set_title('Final EB Category Backlogs\n(Principals vs Families)', fontsize=12, fontweight='bold')
+        ax.set_title('Final EB Category Backlogs', fontsize=12, fontweight='bold')
         ax.set_xlabel('EB Category')
         ax.set_ylabel('Total Backlog Size (Number of People)')
         ax.set_xticks(x)
@@ -348,11 +348,12 @@ class SimulationVisualizer:
         ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{x*100:.1f}%'))
         
         
-        # 9. Average Wage Comparison
+        # Chart 9: Average Worker Wage Over Time with Wage Gap Overlay
         ax = axes[2, 2]
         wages_uncapped = [state.avg_wage_total for state in states_uncapped]
         wages_capped = [state.avg_wage_total for state in states_capped]
         
+        # Primary Y-axis: Plot both wage trajectories
         ax.plot(years_uncapped, wages_uncapped, 
                label='No Per-Country Cap', linewidth=3, color=uncapped_color, 
                marker='o', markersize=4, markevery=max(1, len(years_uncapped)//10), alpha=0.9)
@@ -361,12 +362,34 @@ class SimulationVisualizer:
                label='7% Per-Country Cap', linewidth=3, color=capped_color, 
                linestyle='--', marker='s', markersize=4, markevery=max(1, len(years_capped)//10), alpha=0.9)
         
-        ax.set_title('Average Worker Wage Over Time', fontsize=12, fontweight='bold')
+        ax.set_title('Average Worker Wage Over Time\n(with Wage Gap Highlighted)', 
+                    fontsize=12, fontweight='bold')
         ax.set_xlabel('Year')
-        ax.set_ylabel('Average Wage ($)')
-        ax.legend()
-        ax.grid(True, alpha=0.3)
+        ax.set_ylabel('Average Wage ($)', fontsize=11, fontweight='bold')
         ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'${x:,.0f}'))
+        ax.tick_params(axis='y', labelsize=10)
+        ax.grid(True, alpha=0.3)
+        
+        # Secondary Y-axis: Show the wage difference (Uncapped - Capped)
+        ax_twin = ax.twinx()
+        
+        # Calculate wage gap (positive = uncapped has higher wages)
+        wage_gap = [u - c for u, c in zip(wages_uncapped, wages_capped)]
+        
+        # Fill between to show the gap area
+        ax_twin.fill_between(years_uncapped, 0, wage_gap, 
+                            color='green', alpha=0.25, label='Wage Gap (Uncapped > Capped)')
+        ax_twin.axhline(y=0, color='gray', linestyle=':', linewidth=1.5, alpha=0.7)
+        
+        # Format secondary y-axis
+        ax_twin.set_ylabel('Wage Gap ($)', fontsize=11, fontweight='bold', color='darkgreen')
+        ax_twin.tick_params(axis='y', labelcolor='darkgreen', labelsize=10)
+        ax_twin.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'${x:,.0f}'))
+        
+        # Combine legends from both axes
+        lines1, labels1 = ax.get_legend_handles_labels()
+        lines2, labels2 = ax_twin.get_legend_handles_labels()
+        ax.legend(lines1 + lines2, labels1 + labels2, loc='upper left', fontsize=9)
         
         # Improve overall layout
         plt.tight_layout(rect=[0, 0.03, 1, 0.96])
