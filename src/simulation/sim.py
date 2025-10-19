@@ -26,7 +26,8 @@ from .empirical_params import (
     calculate_annual_sim_cap,
     CONVERSION_WAGE_BUMP, PERM_FILING_DELAY,
     calculate_permanent_entries, H1B_CONVERSION_CATEGORY_PROBABILITIES,
-    CHILDREN_PER_H1B_WORKER, CHILD_ENTRY_AGE_MEAN, CHILD_ENTRY_AGE_STD, CHILD_AGEOUT_AGE
+    CHILDREN_PER_H1B_WORKER, CHILD_ENTRY_AGE_MEAN, CHILD_ENTRY_AGE_STD, CHILD_AGEOUT_AGE,
+    ANNUAL_WAGE_GROWTH_PERM, ANNUAL_WAGE_GROWTH_TEMP  
 )
 from .annual_summary import generate_annual_summaries, print_annual_summary_table
 from .visa_processor import process_eb_conversions_with_spillover
@@ -673,32 +674,66 @@ class Simulation:
                 self.category_nationality_queues[key].append(temp_worker)
 
     def _process_job_changes(self, current_year: int) -> None:
-        """Process job changes and wage updates for all workers."""
+        """
+        Process wage updates for all workers.
+        
+        CRITICAL FIX: All workers receive annual wage growth regardless of job changes.
+        Permanent workers get higher annual raises (3.5%) vs temporary workers (2.5%).
+        Job changes provide ADDITIONAL wage jumps on top of base growth.
+        
+        This ensures wage differentiation accumulates over time:
+        - Permanent workers: 3.5% annual + 12% chance of 15% jump = ~5.3% avg annual growth
+        - Temporary workers: 2.5% annual + 9.6% chance of 5% jump = ~3.0% avg annual growth
+        """
         job_change_rng = np.random.default_rng(self.base_seed + current_year * 50000)
         
         for worker in self.workers:
+            # STEP 1: Apply annual wage growth to ALL workers (NEW!)
+            # This happens every year regardless of job changes
+            if worker.is_permanent:
+                # Permanent workers get better annual raises
+                worker.wage *= (1 + ANNUAL_WAGE_GROWTH_PERM)
+                annual_growth_applied = ANNUAL_WAGE_GROWTH_PERM
+            else:
+                # Temporary workers get smaller annual raises
+                worker.wage *= (1 + ANNUAL_WAGE_GROWTH_TEMP)
+                annual_growth_applied = ANNUAL_WAGE_GROWTH_TEMP
+            
+            # STEP 2: Determine job change probability and wage jump parameters
+            # Handle edge case for recently converted workers
             if worker.is_permanent:
                 if worker.was_converted and worker.conversion_year is not None:
                     if current_year > worker.conversion_year:
+                        # Fully established permanent worker
                         job_change_prob = JOB_CHANGE_PROB_PERM
                         wage_mean = WAGE_JUMP_FACTOR_MEAN_PERM
                         wage_std = WAGE_JUMP_FACTOR_STD_PERM
                     else:
+                        # Just converted this year - still has temporary mobility
                         job_change_prob = JOB_CHANGE_PROB_TEMP
                         wage_mean = WAGE_JUMP_FACTOR_MEAN_TEMP
                         wage_std = WAGE_JUMP_FACTOR_STD_TEMP
                 else:
+                    # Permanent worker who was never H-1B
                     job_change_prob = JOB_CHANGE_PROB_PERM
                     wage_mean = WAGE_JUMP_FACTOR_MEAN_PERM
                     wage_std = WAGE_JUMP_FACTOR_STD_PERM
             else:
+                # Temporary (H-1B) worker
                 job_change_prob = JOB_CHANGE_PROB_TEMP
                 wage_mean = WAGE_JUMP_FACTOR_MEAN_TEMP
                 wage_std = WAGE_JUMP_FACTOR_STD_TEMP
             
+            # STEP 3: Apply additional wage jump if worker changes jobs (stochastic)
             if job_change_rng.random() < job_change_prob:
                 jump_factor = max(1.0, job_change_rng.normal(wage_mean, wage_std))
                 worker.apply_wage_jump(jump_factor)
+                
+                # Optional debug logging for first few years
+                if self.config.debug and current_year <= self.config.start_year + 2:
+                    status = "perm" if worker.is_permanent else "temp"
+                    logger.debug(f"Worker {worker.id} ({status}): annual growth {annual_growth_applied:.1%}, "
+                            f"job change jump {(jump_factor - 1):.1%}")
 
     def _process_eb_category_conversions_with_spillover(self, current_year: int) -> Tuple[int, Dict[str, int], Dict[EBCategory, int], Set[int]]:
         """
