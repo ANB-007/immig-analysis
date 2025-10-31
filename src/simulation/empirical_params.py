@@ -74,7 +74,7 @@ H1B_CONVERSION_CATEGORY_PROBABILITIES = {
 }
 
 # Child age-out parameters for continuous aging
-CHILDREN_PER_H1B_WORKER = 2.0  # Average children per H-1B worker
+CHILDREN_PER_H1B_WORKER = 1.0  # Average children per H-1B worker
 CHILD_ENTRY_AGE_MEAN = 12.0  # Average age when child enters with H-1B parent
 CHILD_ENTRY_AGE_STD = 4.0  # Standard deviation of entry age
 CHILD_AGEOUT_AGE = 21  # Age at which children age out

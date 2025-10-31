@@ -291,6 +291,7 @@ class SimulationState:
             children_by_nationality[child.nationality] += 1
         
         # Calculate family backlog
+        # NO GUARD - calculate for all nationalities
         family_backlog = {}
         for nationality, principal_count in self.queue_backlog_by_country.items():
             principals_and_spouses = int(principal_count * SPOUSE_MULTIPLIER)
@@ -298,6 +299,7 @@ class SimulationState:
             family_backlog[nationality] = principals_and_spouses + children_count
         
         return family_backlog
+
     
     def get_total_family_adjusted_backlog(self, dependent_children: List[DependentChild]) -> int:
         """
@@ -403,18 +405,27 @@ class BacklogAnalysis:
         final_state = sim.states[-1]
         total_backlog = sum(final_state.queue_backlog_by_country.values())
         
+        # FILTER: Only count dependents whose parent is still temporary (still waiting)
+        worker_lookup = {w.id: w for w in sim.workers}
+        valid_dependent_children = []
+        for child in sim.dependent_children:
+            parent = worker_lookup.get(child.parent_worker_id)
+            # Only include if parent exists AND is still temporary (hasn't converted)
+            if parent and parent.is_temporary:
+                valid_dependent_children.append(child)
+        
         # Calculate family-adjusted backlog by nationality
-        family_adjusted = final_state.calculate_family_adjusted_backlog_with_children(sim.dependent_children)
+        family_adjusted = final_state.calculate_family_adjusted_backlog_with_children(valid_dependent_children)
         total_family_adjusted = sum(family_adjusted.values())
         
         # NEW: Calculate family-adjusted backlog by EB category
         family_adjusted_by_eb = cls._calculate_family_adjusted_by_eb_category(
-            final_state, sim.dependent_children, sim.workers
+            final_state, valid_dependent_children, sim.workers
         )
         
         # NEW: Calculate family-adjusted backlog by (EB category, nationality)
         family_adjusted_by_cat_nat = cls._calculate_family_adjusted_by_category_nationality(
-            final_state, sim.dependent_children, sim.workers
+            final_state, valid_dependent_children, sim.workers
         )
         
         return cls(
@@ -428,7 +439,7 @@ class BacklogAnalysis:
             family_adjusted_backlog_by_eb_category=family_adjusted_by_eb,
             family_adjusted_backlog_by_category_nationality=family_adjusted_by_cat_nat
         )
-    
+
     @staticmethod
     def _calculate_family_adjusted_by_eb_category(
         final_state: 'SimulationState',
@@ -451,6 +462,7 @@ class BacklogAnalysis:
                 children_by_eb[parent.eb_category] += 1
         
         # Calculate family backlog by EB category
+        # NO GUARD - calculate for all categories
         family_backlog_by_eb = {}
         for category, principal_count in final_state.queue_backlog_by_eb_category.items():
             principals_and_spouses = int(principal_count * SPOUSE_MULTIPLIER)
@@ -458,7 +470,8 @@ class BacklogAnalysis:
             family_backlog_by_eb[category] = principals_and_spouses + children_count
         
         return family_backlog_by_eb
-    
+
+        
     @staticmethod
     def _calculate_family_adjusted_by_category_nationality(
         final_state: 'SimulationState',
@@ -467,11 +480,9 @@ class BacklogAnalysis:
     ) -> Dict[Tuple[EBCategory, str], int]:
         """
         Calculate family-adjusted backlog by (EB category, nationality).
-        Formula: (principals × SPOUSE_MULTIPLIER) + children_count
         """
         from .empirical_params import SPOUSE_MULTIPLIER
         
-        # Count children by (parent's EB category, nationality)
         children_by_cat_nat = defaultdict(int)
         worker_lookup = {w.id: w for w in workers}
         
@@ -481,7 +492,7 @@ class BacklogAnalysis:
                 key = (parent.eb_category, child.nationality)
                 children_by_cat_nat[key] += 1
         
-        # Calculate family backlog by (EB category, nationality)
+        # NO GUARD - calculate for all pairs, even 0 principals
         family_backlog_by_cat_nat = {}
         for (category, nationality), principal_count in final_state.queue_backlog_by_eb_category_nationality.items():
             principals_and_spouses = int(principal_count * SPOUSE_MULTIPLIER)
