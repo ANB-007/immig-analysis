@@ -1,6 +1,11 @@
+# src/simulation/spillover_calculator.py
 """
 Spillover Allocation Calculator
 Handles redistribution of unused EB slots from low-demand to high-demand countries.
+
+COMPLETELY REWRITTEN: Removed ALL per-country cap constraints from spillover phase.
+Spillover is now allocated proportionally to backlog size ONLY, allowing countries
+to exceed their initial 7% allocation through spillover.
 """
 
 import logging
@@ -18,16 +23,17 @@ def calculate_spillover_allocations(
     """
     Calculate spillover slot allocations for countries with remaining demand.
     
-    Spillover rules:
+    Spillover rules (COMPLETELY REWRITTEN):
     1. Slots come from countries that didn't use their full allocation
-    2. Distributed to countries with backlogs, prioritizing highest backlogs
-    3. Still respects per-country cap (can't exceed original cap even with spillover)
+    2. Distributed to countries with backlogs PROPORTIONALLY to backlog size
+    3. NO per-country cap constraint on spillover - countries can exceed 7%
+    4. Allocation based ONLY on backlog size, not capacity remaining
     
     Args:
         available_slots: Total unused slots available for spillover
-        per_country_caps: Original per-country cap for each country
+        per_country_caps: Original per-country cap for each country (NOT USED IN SPILLOVER)
         backlog_by_country: Current backlog size for each country
-        used_by_country: How many slots each country already used in Phase 1
+        used_by_country: Not used in spillover phase
         
     Returns:
         Dict mapping country -> additional slots allocated through spillover
@@ -37,49 +43,37 @@ def calculate_spillover_allocations(
     
     spillover_allocations = {country: 0 for country in per_country_caps.keys()}
     
-    # Identify countries with remaining capacity
-    countries_with_demand = []
+    # Step 1: Get total backlog across ALL countries (no capacity checks)
+    total_backlog = sum(backlog_by_country.get(country, 0) for country in per_country_caps.keys())
     
-    for country in per_country_caps.keys():
-        backlog = backlog_by_country.get(country, 0)
-        used = used_by_country.get(country, 0)
-        cap = per_country_caps[country]
-        
-        # Country has demand if: has backlog AND hasn't hit per-country cap yet
-        remaining_capacity = cap - used
-        
-        if backlog > 0 and remaining_capacity > 0:
-            countries_with_demand.append({
-                'country': country,
-                'backlog': backlog,
-                'remaining_capacity': remaining_capacity
-            })
-    
-    if not countries_with_demand:
-        logger.debug("No countries with remaining demand for spillover")
+    if total_backlog == 0:
+        logger.debug("No backlog for spillover distribution")
         return spillover_allocations
     
-    # Sort by backlog size (highest first)
-    countries_with_demand.sort(key=lambda x: x['backlog'], reverse=True)
+    # Step 2: Allocate spillover proportionally to each country's backlog
+    # NO per-country cap checks - only backlog matters
+    slots_allocated = 0
+    countries = list(per_country_caps.keys())
     
-    # Distribute spillover slots
-    slots_to_distribute = available_slots
-    
-    for country_info in countries_with_demand:
-        if slots_to_distribute <= 0:
-            break
+    for i, country in enumerate(countries):
+        backlog = backlog_by_country.get(country, 0)
         
-        country = country_info['country']
-        remaining_capacity = country_info['remaining_capacity']
-        backlog = country_info['backlog']
+        if backlog == 0:
+            spillover_allocations[country] = 0
+            continue
         
-        # Allocate up to remaining capacity or available slots, whichever is smaller
-        allocation = min(remaining_capacity, backlog, slots_to_distribute)
+        # For last country, give all remaining slots (handles rounding)
+        if i == len(countries) - 1:
+            allocation = available_slots - slots_allocated
+        else:
+            # Allocate proportionally: (country_backlog / total_backlog) * available_slots
+            proportion = backlog / total_backlog
+            allocation = int(proportion * available_slots)
         
         spillover_allocations[country] = allocation
-        slots_to_distribute -= allocation
+        slots_allocated += allocation
         
-        logger.debug(f"Spillover: {country} gets +{allocation} slots "
-                    f"(backlog={backlog}, capacity={remaining_capacity})")
+        logger.debug(f"Spillover: {country} gets {allocation} slots "
+                    f"(backlog={backlog}, proportion={backlog/total_backlog:.2%})")
     
     return spillover_allocations

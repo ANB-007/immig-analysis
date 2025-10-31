@@ -55,6 +55,7 @@ class Simulation:
         self.child_age_rng = np.random.default_rng(self.base_seed + 2)
         self.eb_category_rng = np.random.default_rng(self.base_seed + 3)
         self.rng = self.job_change_rng
+        
 
         self.temp_nationality_distribution = TEMP_NATIONALITY_DISTRIBUTION.copy()
         
@@ -141,6 +142,14 @@ class Simulation:
         category = self.eb_category_rng.choice(categories, p=probabilities)
         
         return category
+    
+    def _get_current_avg_wage(self) -> float:
+        """Calculate current average wage across all workers."""
+        if not self.workers:
+            return STARTING_WAGE  # Fallback to base wage if no workers exist
+        
+        return np.mean([w.wage for w in self.workers])
+
 
     def _create_children_for_worker(self, worker: Worker, entry_year: int) -> List[DependentChild]:
         """
@@ -423,6 +432,8 @@ class Simulation:
             self.current_year, 
             0
         )
+
+        total_wages = sum(w.wage for w in self.workers)
         
         initial_state = SimulationState(
             year=self.current_year,
@@ -443,6 +454,7 @@ class Simulation:
             annual_conversion_cap=self.annual_sim_cap,
             cumulative_conversions=0,
             h1b_share=n_temps / self.config.initial_workers,
+            total_wages = total_wages,
             # Child age-out data
             children_aged_out_this_year=0,
             cumulative_children_aged_out=0,
@@ -516,6 +528,8 @@ class Simulation:
             logger.info(f"Year {next_year}: Workers={total_workers:,} (+{new_permanent:,}perm, +{new_temporary:,}H1B, -{converted_temps:,}conv)")
             logger.info(f"  EB conversions: {eb_conversions}")
             logger.info(f"  H1B={h1b_share_value:.3%} | Wage=${wage_stats.avg_wage_total:,.0f} | Queue={total_backlog:,} | Children aged out={children_aged_out_this_year}")
+
+        total_wages = sum(worker.wage for worker in self.workers)
         
         new_state = SimulationState(
             year=next_year,
@@ -536,6 +550,7 @@ class Simulation:
             annual_conversion_cap=self.annual_sim_cap,
             cumulative_conversions=self.cumulative_conversions,
             h1b_share=h1b_share_value,
+            total_wages=total_wages,
             # Child age-out data
             children_aged_out_this_year=children_aged_out_this_year,
             cumulative_children_aged_out=child_stats.total_aged_out,
@@ -581,6 +596,8 @@ class Simulation:
             for i in range(new_temporary):
                 nationality = nationality_rng.choice(nationalities, p=probabilities)
                 temp_nationalities.append(str(nationality))
+
+        current_avg_wage = self._get_current_avg_wage()
         
         # 1. Add new permanent workers
         for i in range(new_permanent):
@@ -589,7 +606,7 @@ class Simulation:
                 status=WorkerStatus.PERMANENT,
                 nationality=str(PERMANENT_NATIONALITY),
                 age=int(perm_ages[i]),
-                wage=STARTING_WAGE,
+                wage=current_avg_wage,
                 created_year=next_year,
                 entry_year=next_year,
                 year_joined=next_year,
@@ -611,7 +628,7 @@ class Simulation:
                 status=WorkerStatus.TEMPORARY,
                 nationality=nationality,
                 age=int(temp_ages[i]),
-                wage=STARTING_WAGE,
+                wage=current_avg_wage,
                 created_year=next_year,
                 entry_year=next_year,
                 year_joined=next_year,

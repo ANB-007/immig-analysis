@@ -58,6 +58,7 @@ class Worker:
         """Convert worker from temporary to permanent status."""
         self.status = WorkerStatus.PERMANENT
         self.conversion_year = year
+        self.wage = self.wage * 1.10 # Apply wage bump on conversion
     
     def apply_wage_jump(self, factor: float):
         """Apply wage jump due to job change."""
@@ -237,6 +238,7 @@ class SimulationState:
     annual_conversion_cap: int
     cumulative_conversions: int
     h1b_share: float
+    total_wages: float
     
     # Child age-out data
     children_aged_out_this_year: int

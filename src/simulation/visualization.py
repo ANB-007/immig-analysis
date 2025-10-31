@@ -1,4 +1,4 @@
-# src/simulation/visualization.py
+# src/simulation/visualization.py (SEGMENT WITH CHARTS 1-12)
 """
 Visualization module for workforce growth simulation.
 Provides comparative analysis charts and interactive visualizations.
@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 import warnings
 import math
+from .models import EBCategory
 
 import pandas as pd
 import numpy as np
@@ -18,7 +19,7 @@ import numpy as np
 # Visualization libraries
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
-from matplotlib.ticker import FuncFormatter
+from matplotlib.ticker import FuncFormatter, MaxNLocator
 import seaborn as sns
 
 try:
@@ -37,7 +38,7 @@ PLOT_STYLE = 'whitegrid'
 PLOT_PALETTE = 'Set2'
 SAVE_PLOTS = True
 
-from .models import BacklogAnalysis, EBCategory
+from .models import BacklogAnalysis
 
 # Configure logging and plotting
 logging.basicConfig(level=logging.INFO)
@@ -47,25 +48,22 @@ logger = logging.getLogger(__name__)
 plt.style.use('seaborn-v0_8' if 'seaborn-v0_8' in plt.style.available else 'default')
 sns.set_theme(style=PLOT_STYLE, palette=PLOT_PALETTE)
 
-# Color scheme for consistent branding
+# Color scheme for consistent branding - ACADEMIC & AUTHORITATIVE
 COLORS = {
-    'uncapped': '#2E86AB',  # Blue
-    'capped': '#A23B72',    # Purple/Red
-    'permanent': '#F18F01',  # Orange
-    'temporary': '#C73E1D',  # Red
-    'accent': '#FFE066',     # Yellow
-    'neutral': '#6C757D'     # Gray
+    'uncapped': '#1E3A8A',      # Deep navy (uncapped scenario)
+    'capped': '#9F1239',        # Burgundy/wine (capped scenario)
+    'positive': '#059669',      # Forest emerald (wage gains)
+    'negative': '#DC2626',      # True red (wage losses)
 }
 
-# EB Category colors
+# EB Category colors - PROFESSIONAL HARMONIOUS PALETTE
 EB_COLORS = {
-    EBCategory.EB1: '#1f77b4',  # Blue
-    EBCategory.EB2: '#ff7f0e',  # Orange   
-    EBCategory.EB3: '#2ca02c',  # Green
-    EBCategory.EB4: '#d62728',  # Red
-    EBCategory.EB5: '#9467bd'   # Purple
+    EBCategory.EB1: '#2563EB',  # Royal blue (premium/elite)
+    EBCategory.EB2: '#D97706',  # Amber gold (advanced degree holders)   
+    EBCategory.EB3: '#059669',  # Emerald green (skilled workers - matches positive)
+    EBCategory.EB4: '#7C3AED',  # Deep violet (special immigrants)
+    EBCategory.EB5: '#DC2626'   # Crimson red (investors - high stakes)
 }
-
 
 class SimulationVisualizer:
     """
@@ -124,8 +122,8 @@ class SimulationVisualizer:
         sns.set_palette("Set1")
         
         # Create figure with 3x3 subplots for comprehensive EB category analysis
-        fig, axes = plt.subplots(3, 3, figsize=(24, 18))
-        fig.suptitle('Immigration Policy Comparison: Capped vs Uncapped (EB Category Analysis)\n(Per-Country Caps Applied Within Each EB Category)', 
+        fig, axes = plt.subplots(3, 3, figsize=(18, 15))
+        fig.suptitle('Economic and Family Impacts of Per-Country Limitations in the U.S. Employment-Based Immigration System:\nA 35-Year Comparative Analysis', 
                      fontsize=20, fontweight='bold', y=0.98)
         
         # Define colors
@@ -134,6 +132,7 @@ class SimulationVisualizer:
         
         years_uncapped = [state.year for state in states_uncapped]
         years_capped = [state.year for state in states_capped]
+        years = years_uncapped
         
         # Define line styles for different EB categories
         line_styles = {
@@ -142,11 +141,13 @@ class SimulationVisualizer:
             EBCategory.EB3: {'linestyle': '-.', 'linewidth': 3, 'marker': '^', 'markersize': 6}   # Dash-dot, triangle
         }
         
-        # 1. EB Category Conversions Over Time (Uncapped)
+        # ============================================================
+        # CHART 1: EB CATEGORY CONVERSIONS (UNCAPPED)
+        # ============================================================
         ax = axes[0, 0]
         for category in [EBCategory.EB1, EBCategory.EB2, EBCategory.EB3]:
-            conversions = [state.converted_by_eb_category.get(category, 0) for state in states_uncapped[2:]]
-            years_plot = [state.year for state in states_uncapped[2:]]
+            conversions = [state.converted_by_eb_category.get(category, 0) for state in states_uncapped[3:]]
+            years_plot = [state.year for state in states_uncapped[3:]]
             
             style = line_styles[category]
             ax.plot(years_plot, conversions, 
@@ -158,17 +159,21 @@ class SimulationVisualizer:
                    markersize=style['markersize'],
                    markevery=max(1, len(years_plot)//10),
                    alpha=0.85)
-        ax.set_title('EB Category Conversions Over Time\n(Uncapped Scenario)', fontsize=12, fontweight='bold')
-        ax.set_xlabel('Year')
-        ax.set_ylabel('Annual Conversions')
+    
+        
+        ax.set_title('EB Category Principal Conversions Over Time\n(Uncapped Scenario)', fontsize=12, fontweight='bold')
+        ax.set_xlabel('Year', fontweight='bold')
+        ax.set_ylabel('Annual Conversions', fontweight='bold')
         ax.legend(loc='best', fontsize=10)
         ax.grid(True, alpha=0.3)
         
-        # 2. EB Category Conversions Over Time (Capped)
+        # ============================================================
+        # CHART 2: EB CATEGORY CONVERSIONS (CAPPED)
+        # ============================================================
         ax = axes[0, 1]
         for category in [EBCategory.EB1, EBCategory.EB2, EBCategory.EB3]:
-            conversions = [state.converted_by_eb_category.get(category, 0) for state in states_capped[2:]]
-            years_plot = [state.year for state in states_capped[2:]]
+            conversions = [state.converted_by_eb_category.get(category, 0) for state in states_capped[3:]]
+            years_plot = [state.year for state in states_capped[3:]]
             
             style = line_styles[category]
             ax.plot(years_plot, conversions, 
@@ -180,35 +185,63 @@ class SimulationVisualizer:
                    markersize=style['markersize'],
                    markevery=max(1, len(years_plot)//10),
                    alpha=0.85)
-        ax.set_title('EB Category Conversions Over Time\n(Capped Scenario)', fontsize=12, fontweight='bold')
-        ax.set_xlabel('Year')
-        ax.set_ylabel('Annual Conversions')
+        
+        ax.set_title('EB Category Principal Conversions Over Time\n(Capped Scenario)', fontsize=12, fontweight='bold')
+        ax.set_xlabel('Year', fontweight='bold')
+        ax.set_ylabel('Annual Conversions', fontweight='bold')
         ax.legend(loc='best', fontsize=10)
         ax.grid(True, alpha=0.3)
-        
-        # 3. Children Aged Out Comparison
-        ax = axes[0, 2]
-        children_aged_out_uncapped = [state.children_aged_out_this_year for state in states_uncapped[1:]]
-        children_aged_out_capped = [state.children_aged_out_this_year for state in states_capped[1:]]
-        conversion_years = years_uncapped[1:]
-        
-        width = 0.35
-        x = np.arange(len(conversion_years))
-        
-        ax.bar(x - width/2, children_aged_out_uncapped, width, 
-               label='No Per-Country Cap', alpha=0.8, color=uncapped_color)
-        ax.bar(x + width/2, children_aged_out_capped, width, 
-               label='7% Per-Country Cap', alpha=0.8, color=capped_color)
-        
-        ax.set_title('Children Aged Out Per Year', fontsize=12, fontweight='bold')
-        ax.set_xlabel('Year')
-        ax.set_ylabel('Children Aged Out')
-        ax.set_xticks(x[::max(1, len(x)//8)])
-        ax.set_xticklabels([str(conversion_years[i]) for i in range(0, len(conversion_years), max(1, len(conversion_years)//8))], rotation=45)
-        ax.legend()
+
+        # ============================================================
+        # CHART 3: ANNUAL CONVERSION RATE
+        # ============================================================
+        ax = axes[0, 2]  # First row, right position
+
+        # Calculate annual conversion rates (conversions / H-1B workers)
+        conversion_rate_uncapped = []
+        conversion_rate_capped = []
+
+        for state_u, state_c in zip(states_uncapped[3:], states_capped[3:]):
+            rate_u = (state_u.converted_temps / state_u.temporary_workers * 100) if state_u.temporary_workers > 0 else 0
+            rate_c = (state_c.converted_temps / state_c.temporary_workers * 100) if state_c.temporary_workers > 0 else 0
+            conversion_rate_uncapped.append(rate_u)
+            conversion_rate_capped.append(rate_c)
+
+        years_conv = years[3:]  # Skip first year (no conversions)
+
+        # Plot lines with different styles
+        ax.plot(years_conv, conversion_rate_uncapped, 
+                label='No Per-Country Cap', color=COLORS['uncapped'], linewidth=2.5, linestyle='-')
+        ax.plot(years_conv, conversion_rate_capped, 
+                label='7% Per-Country Cap', color=COLORS['capped'], linewidth=2.5, linestyle='--')
+
+        # Shade the difference (like Cumulative Children Aged Out chart)
+        ax.fill_between(years_conv, conversion_rate_uncapped, conversion_rate_capped,
+                        where=(np.array(conversion_rate_uncapped) >= np.array(conversion_rate_capped)),
+                        color=COLORS['uncapped'], alpha=0.15, interpolate=True)
+
+        ax.fill_between(years_conv, conversion_rate_uncapped, conversion_rate_capped,
+                        where=(np.array(conversion_rate_uncapped) < np.array(conversion_rate_capped)),
+                        color=COLORS['capped'], alpha=0.15, interpolate=True)
+
+        # Add average rate lines
+        avg_rate_u = np.mean(conversion_rate_uncapped)
+        avg_rate_c = np.mean(conversion_rate_capped)
+
+        ax.axhline(y=avg_rate_u, color=COLORS['uncapped'], linestyle=':', linewidth=1.5, alpha=0.6, marker='o')
+        ax.axhline(y=avg_rate_c, color=COLORS['capped'], linestyle=':', linewidth=1.5, alpha=0.6, marker='s')
+
+        ax.set_title('Annual Conversion Rate\n(% of H-1B Workers Converting)', 
+                    fontsize=12, fontweight='bold')
+        ax.set_xlabel('Year', fontsize=10, fontweight='bold')
+        ax.set_ylabel('Conversion Rate (%)', fontsize=10, fontweight='bold')
+        ax.legend(loc='upper right', fontsize=9)
         ax.grid(True, alpha=0.3)
-        
-        # 4. EB-2 Backlog by Nationality (Most Critical) - WITH FAMILY-ADJUSTED
+        ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{x:.1f}%'))
+
+        # ============================================================
+        # CHART 4: EB-2 BACKLOG BY NATIONALITY
+        # ============================================================
         ax = axes[1, 0]
         nationalities = ['India', 'China', 'Other']
 
@@ -231,16 +264,18 @@ class SimulationVisualizer:
         ax.bar(x + 0.5*bar_width, eb2_uncapped_family, bar_width, label='No Cap (With Dependents)', alpha=0.7, color=uncapped_color, hatch='///')
         ax.bar(x + 1.5*bar_width, eb2_capped_family, bar_width, label='7% Cap (With Dependents)', alpha=0.7, color=capped_color, hatch='///')
 
-        ax.set_title('EB-2 Final Backlog by Nationality\n(Advanced Degree Professionals)', fontsize=12, fontweight='bold')
-        ax.set_xlabel('Nationality')
-        ax.set_ylabel('Backlog Size (Number of People)')
+        ax.set_title('EB-2 Final Backlog by Nationality', fontsize=12, fontweight='bold')
+        ax.set_xlabel('Nationality', fontweight='bold')
+        ax.set_ylabel('Backlog Size (Number of People)', fontweight='bold')
         ax.set_xticks(x)
         ax.set_xticklabels(nationalities)
         ax.legend(loc='best', fontsize=9)
         ax.grid(True, alpha=0.3, axis='y')
         ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{x:,.0f}'))
-            
-        # 5. EB-3 Backlog by Nationality - WITH FAMILY-ADJUSTED
+
+        # ============================================================
+        # CHART 5: EB-3 BACKLOG BY NATIONALITY
+        # ============================================================
         ax = axes[1, 1]
 
         # Principals only
@@ -262,16 +297,18 @@ class SimulationVisualizer:
         ax.bar(x + 0.5*bar_width, eb3_uncapped_family, bar_width, label='No Cap (With Dependents)', alpha=0.7, color=uncapped_color, hatch='///')
         ax.bar(x + 1.5*bar_width, eb3_capped_family, bar_width, label='7% Cap (With Dependents)', alpha=0.7, color=capped_color, hatch='///')
 
-        ax.set_title('EB-3 Final Backlog by Nationality\n(Skilled Workers)', fontsize=12, fontweight='bold')
-        ax.set_xlabel('Nationality')
-        ax.set_ylabel('Backlog Size (Number of People)')
+        ax.set_title('EB-3 Final Backlog by Nationality', fontsize=12, fontweight='bold')
+        ax.set_xlabel('Nationality', fontweight='bold')
+        ax.set_ylabel('Backlog Size (Number of People)', fontweight='bold')
         ax.set_xticks(x)
         ax.set_xticklabels(nationalities)
         ax.legend(loc='best', fontsize=9)
         ax.grid(True, alpha=0.3, axis='y')
         ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{x:,.0f}'))
-        
-        # 6. Total EB Category Backlogs (Final Year) - WITH FAMILY-ADJUSTED
+
+        # ============================================================
+        # CHART 6: FINAL EB CATEGORY BACKLOGS
+        # ============================================================
         ax = axes[1, 2]
         categories = [EBCategory.EB1, EBCategory.EB2, EBCategory.EB3]
         category_labels = [cat.value for cat in categories]
@@ -296,107 +333,237 @@ class SimulationVisualizer:
         ax.bar(x + 1.5*bar_width, capped_backlogs_family, bar_width, label='7% Cap (With Dependents)', alpha=0.7, color=capped_color, hatch='///')
 
         ax.set_title('Final EB Category Backlogs', fontsize=12, fontweight='bold')
-        ax.set_xlabel('EB Category')
-        ax.set_ylabel('Total Backlog Size (Number of People)')
+        ax.set_xlabel('EB Category', fontweight='bold')
+        ax.set_ylabel('Total Backlog Size (Number of People)', fontweight='bold')
         ax.set_xticks(x)
         ax.set_xticklabels(category_labels)
         ax.legend(loc='best', fontsize=9)
         ax.grid(True, alpha=0.3, axis='y')
         ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{x:,.0f}'))
-        
-        # 7. Cumulative Children Aged Out Over Time
+
+        # ============================================================
+        # CHART 7: CHILDREN AGED OUT COMPARISON
+        # ============================================================
         ax = axes[2, 0]
+        children_aged_out_uncapped = [state.children_aged_out_this_year for state in states_uncapped]
+        children_aged_out_capped = [state.children_aged_out_this_year for state in states_capped]
+        conversion_years = years_uncapped
+
+        width = 0.35
+        x = np.arange(len(conversion_years))
+
+        ax.bar(x - width/2, children_aged_out_uncapped, width, 
+            label='No Per-Country Cap', alpha=0.8, color=uncapped_color)
+        ax.bar(x + width/2, children_aged_out_capped, width, 
+            label='7% Per-Country Cap', alpha=0.8, color=capped_color)
+
+        ax.set_title('Children Aged Out Per Year', fontsize=12, fontweight='bold')
+        ax.set_xlabel('Year', fontweight='bold')
+        ax.set_ylabel('Children Aged Out', fontweight='bold')
+
+        ax.set_xticks(x)  # Set tick at every bar position
+        ax.set_xticklabels(conversion_years)  # Label with actual years
+
+        ax.xaxis.set_major_locator(MaxNLocator(nbins=8))  # Matplotlib picks ~8 nice positions
+
+        ax.legend()
+        ax.grid(True, alpha=0.3)
+
+        # ============================================================
+        # CHART 8: CUMULATIVE CHILDREN AGED OUT
+        # ============================================================
+        ax = axes[2, 1]
         cumulative_aged_out_uncapped = [state.cumulative_children_aged_out for state in states_uncapped]
         cumulative_aged_out_capped = [state.cumulative_children_aged_out for state in states_capped]
-        
+
         ax.plot(years_uncapped, cumulative_aged_out_uncapped, 
-               label='No Per-Country Cap', linewidth=3, color=uncapped_color, 
-               marker='o', markersize=4, markevery=max(1, len(years_uncapped)//10), alpha=0.9)
-        
+            label='No Per-Country Cap', linewidth=3, color=uncapped_color, 
+            linestyle='-', marker='o', markersize=4, markevery=max(1, len(years_uncapped)//10), alpha=0.9)
+
         ax.plot(years_capped, cumulative_aged_out_capped, 
-               label='7% Per-Country Cap', linewidth=3, color=capped_color, 
-               linestyle='--', marker='^', markersize=4, markevery=max(1, len(years_capped)//10), alpha=0.9)
-        
+            label='7% Per-Country Cap', linewidth=3, color=capped_color, 
+            linestyle='--', marker='s', markersize=4, markevery=max(1, len(years_capped)//10), alpha=0.9)
+
         ax.fill_between(years_uncapped, cumulative_aged_out_uncapped, alpha=0.2, color=uncapped_color)
         ax.fill_between(years_capped, cumulative_aged_out_capped, alpha=0.2, color=capped_color)
-        
-        ax.set_title('Cumulative Children Aged Out\n(Critical Family Impact Metric)', fontsize=12, fontweight='bold')
-        ax.set_xlabel('Year')
-        ax.set_ylabel('Total Children Aged Out')
+
+        ax.set_title('Cumulative Children Aged Out', fontsize=12, fontweight='bold')
+        ax.set_xlabel('Year', fontweight='bold')
+        ax.set_ylabel('Total Children Aged Out', fontweight='bold')
         ax.legend()
         ax.grid(True, alpha=0.3)
         ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{x:,.0f}'))
-        
-        # 8. H-1B Share Evolution
-        ax = axes[2, 1]
+
+        # ============================================================
+        # CHART 9: H-1B SHARE EVOLUTION
+        # ============================================================
+        ax = axes[2, 2]
         h1b_uncapped = [state.h1b_share for state in states_uncapped]
         h1b_capped = [state.h1b_share for state in states_capped]
-        
+
         ax.plot(years_uncapped, h1b_uncapped, 
-               label='No Per-Country Cap', linewidth=3, color=uncapped_color, 
-               marker='o', markersize=4, markevery=max(1, len(years_uncapped)//10), alpha=0.9)
-        
+            label='No Per-Country Cap', linewidth=3, color=uncapped_color, 
+            linestyle='-', marker='o', markersize=4, markevery=max(1, len(years_uncapped)//10), alpha=0.9)
+
         ax.plot(years_capped, h1b_capped, 
-               label='7% Per-Country Cap', linewidth=3, color=capped_color, 
-               linestyle='--', marker='^', markersize=4, markevery=max(1, len(years_capped)//10), alpha=0.9)
-        
+            label='7% Per-Country Cap', linewidth=3, color=capped_color, 
+            linestyle='--', marker='s', markersize=4, markevery=max(1, len(years_capped)//10), alpha=0.9)
+
         ax.set_title('H-1B Share of Workforce Over Time', fontsize=12, fontweight='bold')
-        ax.set_xlabel('Year')
-        ax.set_ylabel('H-1B Share (%)')
+        ax.set_xlabel('Year', fontweight='bold')
+        ax.set_ylabel('H-1B Share (%)', fontweight='bold')
         ax.legend()
         ax.grid(True, alpha=0.3)
         ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{x*100:.1f}%'))
-        
-        
-        # Chart 9: Average Worker Wage Over Time with Wage Gap Overlay
-        ax = axes[2, 2]
-        wages_uncapped = [state.avg_wage_total for state in states_uncapped]
-        wages_capped = [state.avg_wage_total for state in states_capped]
-        
+
+        """
+        # ============================================================
+        # CHART 10: AVERAGE H-1B WORKER WAGE WITH DUAL AXIS
+        # ============================================================
+        ax = axes[3, 0]  # Bottom row, left position
+
+        # Extract H-1B worker wages
+        h1b_wages_uncapped = [state.avg_wage_temporary for state in states_uncapped]
+        h1b_wages_capped = [state.avg_wage_temporary for state in states_capped]
+
         # Primary Y-axis: Plot both wage trajectories
-        ax.plot(years_uncapped, wages_uncapped, 
-               label='No Per-Country Cap', linewidth=3, color=uncapped_color, 
-               marker='o', markersize=4, markevery=max(1, len(years_uncapped)//10), alpha=0.9)
-        
-        ax.plot(years_capped, wages_capped, 
-               label='7% Per-Country Cap', linewidth=3, color=capped_color, 
-               linestyle='--', marker='s', markersize=4, markevery=max(1, len(years_capped)//10), alpha=0.9)
-        
-        ax.set_title('Average Worker Wage Over Time\n(with Wage Gap Highlighted)', 
+        ax.plot(years[1:], h1b_wages_uncapped[1:], 
+                label='No Per-Country Cap', linewidth=2.5, color=COLORS['uncapped'], 
+                linestyle='-', marker='o', markersize=3, markevery=max(1, len(years)//10), alpha=0.9)
+
+        ax.plot(years[1:], h1b_wages_capped[1:], 
+                label='7% Per-Country Cap', linewidth=2.5, color=COLORS['capped'], 
+                linestyle='--', marker='s', markersize=3, markevery=max(1, len(years)//10), alpha=0.9)
+
+        ax.set_title('Average H-1B Worker Wage\n(Current Temporary Workers)', 
                     fontsize=12, fontweight='bold')
-        ax.set_xlabel('Year')
-        ax.set_ylabel('Average Wage ($)', fontsize=11, fontweight='bold')
-        ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'${x:,.0f}'))
-        ax.tick_params(axis='y', labelsize=10)
+        ax.set_xlabel('Year', fontsize=10, fontweight='bold')
+        ax.set_ylabel('Average Wage ($)', fontsize=10, fontweight='bold')
+        ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'${x/1000:.0f}K'))
         ax.grid(True, alpha=0.3)
-        
-        # Secondary Y-axis: Show the wage difference (Uncapped - Capped)
-        ax_twin = ax.twinx()
-        
-        # Calculate wage gap (positive = uncapped has higher wages)
-        wage_gap = [u - c for u, c in zip(wages_uncapped, wages_capped)]
-        
-        # Fill between to show the gap area
-        ax_twin.fill_between(years_uncapped, 0, wage_gap, 
-                            color='green', alpha=0.25, label='Wage Gap (Uncapped > Capped)')
-        ax_twin.axhline(y=0, color='gray', linestyle=':', linewidth=1.5, alpha=0.7)
-        
-        # Format secondary y-axis
-        ax_twin.set_ylabel('Wage Gap ($)', fontsize=11, fontweight='bold', color='darkgreen')
-        ax_twin.tick_params(axis='y', labelcolor='darkgreen', labelsize=10)
-        ax_twin.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'${x:,.0f}'))
-        
+
+        # Secondary Y-axis: Show the wage gap
+        ax2 = ax.twinx()
+
+        # Calculate wage gap (uncapped - capped) - NOTE: Will be negative!
+        h1b_wage_gap = np.array(h1b_wages_uncapped) - np.array(h1b_wages_capped)
+
+        # Shade the gap (handle negative values)
+        ax2.fill_between(years, 0, h1b_wage_gap, 
+                        where=(h1b_wage_gap >= 0),
+                        color=COLORS['positive'], alpha=0.25, interpolate=True)
+        ax2.fill_between(years, 0, h1b_wage_gap, 
+                        where=(h1b_wage_gap < 0),
+                        color=COLORS['capped'], alpha=0.25, interpolate=True, label='Wage Gap')
+        ax2.axhline(y=0, color='black', linestyle=':', linewidth=1, alpha=0.5)
+
+        # Format secondary y-axis - FIXED: Allow negative range
+        gap_max = max(abs(h1b_wage_gap.min()), abs(h1b_wage_gap.max()))
+        ax2.set_ylim(-gap_max * 1.2, gap_max * 0.3)  # Emphasize negative portion
+        ax2.yaxis.set_major_locator(MaxNLocator(nbins=5, integer=False))
+        ax2.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'${x:,.0f}'))
+        ax2.set_ylabel('Wage Gap ($)', fontsize=10, fontweight='bold', color='gray')
+        ax2.tick_params(axis='y', labelcolor='gray')
+
+        # Calculate final gap for annotation
+        final_h1b_gap = h1b_wage_gap[-1]
+        gap_pct = (final_h1b_gap / h1b_wages_capped[-1] * 100) if h1b_wages_capped[-1] > 0 else 0
+
         # Combine legends from both axes
         lines1, labels1 = ax.get_legend_handles_labels()
-        lines2, labels2 = ax_twin.get_legend_handles_labels()
-        ax.legend(lines1 + lines2, labels1 + labels2, loc='upper left', fontsize=9)
-        
+        lines2, labels2 = ax2.get_legend_handles_labels()
+        ax.legend(lines1 + lines2, labels1 + labels2, loc='upper left', fontsize=9, framealpha=0.95)
+
+        # ============================================================
+        # CHART 11: AVERAGE WORKER WAGE WITH DUAL AXIS
+        # ============================================================
+        ax = axes[3, 1]  # Bottom row, middle position
+
+        # Extract wages
+        wages_uncapped = [state.avg_wage_total for state in states_uncapped]
+        wages_capped = [state.avg_wage_total for state in states_capped]
+
+        # Primary Y-axis: Plot both wage trajectories
+        ax.plot(years, wages_uncapped, 
+                label='No Per-Country Cap', linewidth=2.5, color=COLORS['uncapped'], 
+                linestyle='-', marker='o', markersize=3, markevery=max(1, len(years)//10), alpha=0.9)
+
+        ax.plot(years, wages_capped, 
+                label='7% Per-Country Cap', linewidth=2.5, color=COLORS['capped'], 
+                linestyle='--', marker='s', markersize=3, markevery=max(1, len(years)//10), alpha=0.9)
+
+        ax.set_title('Average Worker Wage Over Time\n(Industry-Wide Wage Gap)', 
+                    fontsize=12, fontweight='bold')
+        ax.set_xlabel('Year', fontsize=10, fontweight='bold')
+        ax.set_ylabel('Average Wage ($)', fontsize=10, fontweight='bold')
+        ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'${x/1000:.0f}K'))
+        ax.grid(True, alpha=0.3)
+
+        # Secondary Y-axis: Show the wage gap
+        ax2 = ax.twinx()
+
+        # Calculate wage gap (uncapped - capped)
+        wage_gap = np.array(wages_uncapped) - np.array(wages_capped)
+
+        # Shade the gap
+        ax2.fill_between(years, 0, wage_gap, 
+                        color=COLORS['positive'], alpha=0.25, label='Wage Gap')
+        ax2.axhline(y=0, color='black', linestyle=':', linewidth=1, alpha=0.5)
+
+        # Format secondary y-axis - USE CONSISTENT GREEN COLOR
+        ax2.set_ylabel('Wage Gap ($)', fontsize=10, fontweight='bold', color=COLORS['positive'])
+        ax2.tick_params(axis='y', labelcolor=COLORS['positive'])
+
+        # ✅ FIX: Set explicit y-limits and use proper formatting for small values
+        gap_max = max(abs(wage_gap.min()), abs(wage_gap.max()))
+        ax2.set_ylim(-gap_max * 0.1, gap_max * 1.15)  # Give proper range
+        ax2.yaxis.set_major_locator(MaxNLocator(nbins=4, integer=False))
+        ax2.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'${x:,.0f}'))
+
+        # Calculate final gap for annotation
+        final_gap = wage_gap[-1]
+        gap_pct = (final_gap / wages_capped[-1] * 100) if wages_capped[-1] > 0 else 0
+
+        # Combine legends from both axes
+        lines1, labels1 = ax.get_legend_handles_labels()
+        lines2, labels2 = ax2.get_legend_handles_labels()
+        ax.legend(lines1 + lines2, labels1 + labels2, loc='upper left', fontsize=9, framealpha=0.95)
+
+        # ============================================================
+        # CHART 12: CUMULATIVE WAGE GAP
+        # ============================================================
+        ax = axes[3, 2]  # Bottom row, right position
+
+        # Extract total wages
+        total_wages_uncapped = np.array([state.total_wages for state in states_uncapped])
+        total_wages_capped = np.array([state.total_wages for state in states_capped])
+
+        # Calculate cumulative gap
+        annual_wage_gap = total_wages_uncapped - total_wages_capped
+        cumulative_wage_gap = np.cumsum(annual_wage_gap) / 1e9  # Convert to billions
+
+        # Plot
+        ax.plot(years, cumulative_wage_gap, color=COLORS["positive"], linewidth=3, label='Cumulative Wage Gain')
+        ax.fill_between(years, 0, cumulative_wage_gap, color=COLORS["positive"], alpha=0.25)
+        ax.axhline(y=0, color='black', linestyle='--', linewidth=1, alpha=0.25)
+
+        ax.set_title('Cumulative Wage Gain\n(Uncapped vs Capped)', fontsize=12, fontweight='bold')
+        ax.set_xlabel('Year', fontsize=10, fontweight='bold')
+        ax.set_ylabel('Cumulative Gain ($B)', fontsize=10, fontweight='bold')
+        ax.legend(loc='upper left', fontsize=9)
+        ax.grid(True, alpha=0.3)
+
+        # FIXED: Use consistent formatting like Chart 10 & 11
+        ax.yaxis.set_major_locator(MaxNLocator(nbins=5, integer=False))
+        ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'${x:.1f}B'))
+        """
+
         # Improve overall layout
         plt.tight_layout(rect=[0, 0.03, 1, 0.96])
-        
+
         # Save chart
         chart_file = self.output_dir / 'eb_category_immigration_policy_comparison.png'
-        
+
         try:
             plt.savefig(chart_file, dpi=300, bbox_inches='tight', facecolor='white', edgecolor='none')
             plt.close()
@@ -559,8 +726,8 @@ class SimulationVisualizer:
         
         ax1.set_title('Workforce Composition\n(No Per-Country Cap)', 
                      fontsize=14, fontweight='bold')
-        ax1.set_xlabel('Year')
-        ax1.set_ylabel('Number of Workers')
+        ax1.set_xlabel('Year', fontweight='bold')
+        ax1.set_ylabel('Number of Workers', fontweight='bold')
         ax1.legend()
         ax1.grid(True, alpha=0.3)
         
@@ -573,8 +740,8 @@ class SimulationVisualizer:
         
         ax2.set_title('Workforce Composition\n(7% Per-Country Cap)', 
                      fontsize=14, fontweight='bold')
-        ax2.set_xlabel('Year')
-        ax2.set_ylabel('Number of Workers')
+        ax2.set_xlabel('Year', fontweight='bold')
+        ax2.set_ylabel('Number of Workers', fontweight='bold')
         ax2.legend()
         ax2.grid(True, alpha=0.3)
         
@@ -609,8 +776,8 @@ class SimulationVisualizer:
                color=COLORS['accent'], alpha=0.8, edgecolor=COLORS['capped'])
         ax1.set_title('Green Card Conversions Per Year (7% Cap)', 
                      fontsize=14, fontweight='bold')
-        ax1.set_xlabel('Year')
-        ax1.set_ylabel('Number of Conversions')
+        ax1.set_xlabel('Year', fontweight='bold')
+        ax1.set_ylabel('Number of Conversions', fontweight='bold')
         ax1.grid(True, alpha=0.3)
         
         # Plot 2: Cumulative conversions
@@ -621,8 +788,8 @@ class SimulationVisualizer:
                         color=COLORS['capped'], alpha=0.3)
         ax2.set_title('Cumulative Green Card Conversions', 
                      fontsize=14, fontweight='bold')
-        ax2.set_xlabel('Year')
-        ax2.set_ylabel('Cumulative Conversions')
+        ax2.set_xlabel('Year', fontweight='bold')
+        ax2.set_ylabel('Cumulative Conversions', fontweight='bold')
         ax2.grid(True, alpha=0.3)
         
         plt.tight_layout()

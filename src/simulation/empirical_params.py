@@ -13,10 +13,10 @@ import logging
 logger = logging.getLogger(__name__)
 
 # Core workforce parameters
-H1B_SHARE = 0.0045  # 0.45% of workforce are H-1B holders
+H1B_SHARE = 0  # 0.45% of workforce are H-1B holders
 ANNUAL_WORKFORCE_GROWTH_RATE = 0.005  # 0.5% annual growth
-REAL_US_WORKFORCE_SIZE = 165_000_000  # Real US workforce size
-GREEN_CARD_CAP_ABS = 63_000  # Annual employment-based green card cap (principals only)
+REAL_US_WORKFORCE_SIZE = 167_000_000  # Real US workforce size
+GREEN_CARD_CAP_ABS = 67_200  # Annual employment-based green card cap (principals only)
 
 # Per-country cap parameters
 PER_COUNTRY_CAP_SHARE = 0.07  # 7% per-country limit
@@ -24,18 +24,18 @@ PER_COUNTRY_CAP_SHARE = 0.07  # 7% per-country limit
 # Worker lifecycle parameters
 STARTING_WAGE = 95_000  # Starting salary for new workers
 CONVERSION_WAGE_BUMP = 1.10  # 10% wage increase on conversion
-PERM_FILING_DELAY = 2  # Years between H-1B entry and PERM filing
+PERM_FILING_DELAY = 2  # Years between H-1B entry and successful PERM filing
 
 # NEW: Annual wage growth parameters (independent of job changes)
-ANNUAL_WAGE_GROWTH_PERM = 0.050  # 5.0% annual wage growth for permanent workers
-ANNUAL_WAGE_GROWTH_TEMP = 0.010  # 1.0% annual wage growth for temporary workers
+ANNUAL_WAGE_GROWTH_PERM = 0.05  # 5.0% annual wage growth for permanent workers
+ANNUAL_WAGE_GROWTH_TEMP = 0.01  # 1.0% annual wage growth for temporary workers
 
 # Job mobility parameters
-JOB_CHANGE_PROB_PERM = 0.12  # 12% annual job change probability for permanent workers
-JOB_CHANGE_PROB_TEMP = 0.096  # 9.6% for temporary (20% less mobile)
+JOB_CHANGE_PROB_PERM = 0.132  # 13.2% annual turover rate of tech workers
+JOB_CHANGE_PROB_TEMP = JOB_CHANGE_PROB_PERM * .8  # (20% less mobile)
 
 # Wage jump parameters on job change
-WAGE_JUMP_FACTOR_MEAN_PERM = 1.15  # 15% average wage jump for permanent workers
+WAGE_JUMP_FACTOR_MEAN_PERM = 1.15  # 20% average wage jump for permanent workers
 WAGE_JUMP_FACTOR_STD_PERM = 0.01  # 1% standard deviation
 WAGE_JUMP_FACTOR_MEAN_TEMP = 1.05  # 5% average wage jump for temporary workers
 WAGE_JUMP_FACTOR_STD_TEMP = 0.01  # 1% standard deviation
