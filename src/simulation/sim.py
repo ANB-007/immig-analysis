@@ -481,7 +481,7 @@ class Simulation:
         )
         self.cumulative_conversions += converted_temps
         
-        # CRITICAL FIX: Process child saves FIRST, then child aging
+        # Process child saves FIRST, then child aging
         children_saved = self._remove_children_of_converted_parents(next_year, converted_worker_ids)
         children_aged_out_this_year = self._process_child_aging(next_year)
         

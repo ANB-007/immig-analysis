@@ -405,13 +405,23 @@ class BacklogAnalysis:
         final_state = sim.states[-1]
         total_backlog = sum(final_state.queue_backlog_by_country.values())
         
-        # FILTER: Only count dependents whose parent is still temporary (still waiting)
-        worker_lookup = {w.id: w for w in sim.workers}
+        # FILTER: Only count dependents whose parent is IN THE CONVERSION QUEUE
+        # Build set of worker IDs that are actually in queue (have filed for green card)
+        workers_in_queue = set()
+        if sim.country_cap_enabled:
+            # Capped: check category_nationality_queues
+            for queue in sim.category_nationality_queues.values():
+                for temp_worker in queue:
+                    workers_in_queue.add(temp_worker.worker_id)
+        else:
+            # Uncapped: check global_queue
+            for temp_worker in sim.global_queue:
+                workers_in_queue.add(temp_worker.worker_id)
+        
+        # Only include dependents whose parent is actually in the conversion queue
         valid_dependent_children = []
         for child in sim.dependent_children:
-            parent = worker_lookup.get(child.parent_worker_id)
-            # Only include if parent exists AND is still temporary (hasn't converted)
-            if parent and parent.is_temporary:
+            if child.parent_worker_id in workers_in_queue:
                 valid_dependent_children.append(child)
         
         # Calculate family-adjusted backlog by nationality

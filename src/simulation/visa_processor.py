@@ -223,10 +223,10 @@ class VisaProcessor:
             while queue and conversions_made < country_cap:
                 temp_worker = queue.popleft()
                 worker = worker_lookup.get(temp_worker.worker_id)
-                conversions_made += 1  # ← MOVE THIS LINE UP (before the check)
                 if not worker or not worker.is_temporary:
                     logger.debug(f"Skipped invalid worker for {nationality}")
                     continue
+                conversions_made += 1  
                 worker.convert_to_permanent(current_year)
                 converted_worker_ids.add(worker.id)
                 conversions_by_country[nationality] += 1
@@ -281,10 +281,10 @@ class VisaProcessor:
             while queue and conversions_made < additional_slots:
                 temp_worker = queue.popleft()
                 worker = worker_lookup.get(temp_worker.worker_id)
-                conversions_made += 1  # ← MOVE THIS LINE UP (before the check)
                 if not worker or not worker.is_temporary:
                     logger.debug(f"Skipped invalid worker for {nationality}")
                     continue
+                conversions_made += 1 
                 worker.convert_to_permanent(current_year)
                 converted_worker_ids.add(worker.id)
                 conversions_by_country[nationality] += 1
